@@ -1,0 +1,55 @@
+package com.example.hireapp.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.hireapp.screens.login.LoginScreen
+import com.example.hireapp.screens.login.SignUpScreen
+import com.example.hireapp.screens.login.SignUpCommonScreen
+import com.example.hireapp.screens.login.SignUpInterviewerScreen
+import com.example.hireapp.screens.applicant.HomeApplScreen
+import com.example.hireapp.screens.applicant.MyPageApplScreen
+import com.example.hireapp.screens.applicant.CaptureScreen
+import com.example.hireapp.screens.interviewer.HomeIntrScreen
+import com.example.hireapp.screens.interviewer.MyPageIntrScreen
+
+sealed class Screen(val route: String) {
+    object Login : Screen("com/example/hireapp/ui/screens/login")
+    object SignUp : Screen("signup")
+    object HomeAppl : Screen("home_appl")
+    object HomeIntr : Screen("home_intr")
+    object MyPageAppl : Screen("mypage_appl")
+    object MyPageIntr : Screen("mypage_intr")
+    object Capture : Screen("capture")
+    object SignUpCommon : Screen("signup_common")
+    object SignUpInterviewer : Screen("signup_interviewer")
+}
+
+@Composable
+fun AppNavHost(navController: NavHostController = rememberNavController(), userType: String? = null) {
+    val startDestination = when (userType) {
+        "면접자" -> Screen.HomeAppl.route
+        "면접관" -> Screen.HomeIntr.route
+        else -> Screen.Login.route  // 로그인 화면
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
+    ) {
+        composable(Screen.Login.route) { LoginScreen(navController) }
+        composable(Screen.SignUp.route) { SignUpScreen(navController) }
+        composable(Screen.SignUpCommon.route + "/{role}") { backStackEntry ->
+            val role = backStackEntry.arguments?.getString("role") ?: ""
+            SignUpCommonScreen(navController, role)
+        }
+        composable(Screen.SignUpInterviewer.route) { SignUpInterviewerScreen(navController) }
+        composable(Screen.HomeAppl.route) { HomeApplScreen(navController) }
+        composable(Screen.HomeIntr.route) { HomeIntrScreen(navController) }
+        composable(Screen.MyPageAppl.route) { MyPageApplScreen(navController) }
+        composable(Screen.MyPageIntr.route) { MyPageIntrScreen(navController) }
+        composable(Screen.Capture.route) { CaptureScreen(navController) }
+    }
+}
