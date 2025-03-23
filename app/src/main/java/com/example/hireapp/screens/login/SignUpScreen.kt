@@ -1,6 +1,7 @@
 package com.example.hireapp.screens.login
 
 import android.annotation.SuppressLint
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -8,17 +9,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun SignUpScreen(navController: NavController) {
     var role by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     Scaffold {
         Column(
@@ -37,23 +43,22 @@ fun SignUpScreen(navController: NavController) {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = {
-                if (role == "면접자") {
-                    navController.navigate("signup_common/면접자")
-                } else if (role == "면접관") {
-                    navController.navigate("signup_common/면접관")
+                if (role == "면접자" || role == "면접관") {
+                    navController.navigate("signup_common/$role")
+                } else {
+                    // 역할이 선택되지 않은 경우에 대한 처리
+                    Toast.makeText(context, "역할을 선택해주세요.", Toast.LENGTH_SHORT).show()
                 }
             }) {
                 Text("다음")
             }
             Spacer(modifier = Modifier.height(16.dp))
-            // 뒤로 가기 버튼 추가
             TextButton(onClick = { navController.popBackStack() }) {
                 Text("계정이 있으신가요?")
             }
         }
     }
 }
-
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
@@ -65,6 +70,8 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
 
+    val context = LocalContext.current
+
     Scaffold {
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -73,7 +80,7 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
         ) {
             Text(text = "회원가입", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(16.dp))
-            TextField(value = name, onValueChange = { name = it }, label = { Text("이름") })
+            TextField(value = name, onValueChange = { name = it }, label = { Text("이름") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text))
             Spacer(modifier = Modifier.height(8.dp))
             TextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("생년월일 (MM/DD/YYYY)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
             Spacer(modifier = Modifier.height(8.dp))
@@ -87,11 +94,41 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(onClick = {
-                if (role == "면접자") {
-                    navController.navigate("login")
-                } else {
-                    navController.navigate("signup_interviewer")
+                if (password != confirmPassword) {
+                    Toast.makeText(context, "비밀번호가 일치하지 않습니다.", Toast.LENGTH_SHORT).show()
+                    return@Button
                 }
+
+                Firebase.auth.createUserWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val user = Firebase.auth.currentUser
+                            val userId = user?.uid ?: ""
+                            val db = Firebase.firestore
+                            val userData = hashMapOf(
+                                "name" to name,
+                                "birthDate" to birthDate,
+                                "phoneNumber" to phoneNumber,
+                                "email" to email,
+                                "role" to role
+                            )
+
+                            db.collection("users").document(userId).set(userData)
+                                .addOnSuccessListener {
+                                    Toast.makeText(context, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
+                                    if (role == "면접자") {
+                                        navController.navigate("login")
+                                    } else {
+                                        navController.navigate("signup_interviewer")
+                                    }
+                                }
+                                .addOnFailureListener { e ->
+                                    Toast.makeText(context, "회원가입에 실패했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                        } else {
+                            Toast.makeText(context, "회원가입에 실패했습니다: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
             }) {
                 Text(if (role == "면접자") "회원가입 완료" else "다음")
             }
@@ -104,6 +141,10 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
 fun SignUpInterviewerScreen(navController: NavController) {
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedJob by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+    val user = Firebase.auth.currentUser
+    val userId = user?.uid ?: ""
 
     val categories = listOf(
         "IT/소프트웨어",
@@ -161,10 +202,24 @@ fun SignUpInterviewerScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-
             Button(
                 onClick = {
-                    navController.navigate("login")
+                    if (selectedCategory != null && selectedJob != null) {
+                        val db = Firebase.firestore
+                        val interviewerData = mapOf(
+                            "category" to selectedCategory,
+                            "job" to selectedJob
+                        )
+
+                        db.collection("users").document(userId).update(interviewerData)
+                            .addOnSuccessListener {
+                                Toast.makeText(context, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
+                                navController.navigate("login")
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(context, "회원가입에 실패했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                    }
                 },
                 enabled = selectedCategory != null && selectedJob != null,
                 modifier = Modifier.width(200.dp).height(48.dp)
@@ -221,8 +276,6 @@ fun DropdownMenuWithFixedTextSize(
         }
     }
 }
-
-
 
 @Preview(showBackground = true)
 @Composable
