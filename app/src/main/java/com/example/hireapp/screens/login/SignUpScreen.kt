@@ -1,0 +1,243 @@
+package com.example.hireapp.screens.login
+
+import android.annotation.SuppressLint
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Composable
+fun SignUpScreen(navController: NavController) {
+    var role by remember { mutableStateOf("") }
+
+    Scaffold {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = "어느 역할을 맡고 있나요?", style = MaterialTheme.typography.headlineMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row {
+                RadioButton(selected = role == "면접자", onClick = { role = "면접자" })
+                Text("면접자")
+                Spacer(modifier = Modifier.width(16.dp))
+                RadioButton(selected = role == "면접관", onClick = { role = "면접관" })
+                Text("면접관")
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = {
+                if (role == "면접자") {
+                    navController.navigate("signup_common/면접자")
+                } else if (role == "면접관") {
+                    navController.navigate("signup_common/면접관")
+                }
+            }) {
+                Text("다음")
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            // 뒤로 가기 버튼 추가
+            TextButton(onClick = { navController.popBackStack() }) {
+                Text("계정이 있으신가요?")
+            }
+        }
+    }
+}
+
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Composable
+fun SignUpCommonScreen(navController: NavController, role: String) {
+    var name by remember { mutableStateOf("") }
+    var birthDate by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+
+    Scaffold {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = "회원가입", style = MaterialTheme.typography.headlineMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+            TextField(value = name, onValueChange = { name = it }, label = { Text("이름") })
+            Spacer(modifier = Modifier.height(8.dp))
+            TextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("생년월일 (MM/DD/YYYY)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            Spacer(modifier = Modifier.height(8.dp))
+            TextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("전화번호") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+            Spacer(modifier = Modifier.height(8.dp))
+            TextField(value = email, onValueChange = { email = it }, label = { Text("이메일 (로그인 ID)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+            Spacer(modifier = Modifier.height(8.dp))
+            TextField(value = password, onValueChange = { password = it }, label = { Text("비밀번호") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+            Spacer(modifier = Modifier.height(8.dp))
+            TextField(value = confirmPassword, onValueChange = { confirmPassword = it }, label = { Text("비밀번호 확인") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(onClick = {
+                if (role == "면접자") {
+                    navController.navigate("login")
+                } else {
+                    navController.navigate("signup_interviewer")
+                }
+            }) {
+                Text(if (role == "면접자") "회원가입 완료" else "다음")
+            }
+        }
+    }
+}
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Composable
+fun SignUpInterviewerScreen(navController: NavController) {
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var selectedJob by remember { mutableStateOf<String?>(null) }
+
+    val categories = listOf(
+        "IT/소프트웨어",
+        "디자인",
+        "마케팅",
+        "영업",
+        "금융",
+        "인사",
+        "의료",
+        "교육",
+        "제조",
+        "법률"
+    )
+
+    val subJobsMap = mapOf(
+        "IT/소프트웨어" to listOf("프로그래머", "데이터 엔지니어", "AI 전문가"),
+        "디자인" to listOf("UX 디자이너", "그래픽 디자이너", "영상 편집자"),
+        "마케팅" to listOf("디지털 마케터", "브랜드 매니저", "SEO 전문가"),
+        "영업" to listOf("B2B 영업", "해외 영업", "세일즈 매니저"),
+        "금융" to listOf("회계사", "재무 분석가", "투자 컨설턴트"),
+        "인사" to listOf("채용 담당자", "HRBP", "교육 담당자"),
+        "의료" to listOf("의사", "간호사", "물리치료사"),
+        "교육" to listOf("교사", "강사", "콘텐츠 제작자"),
+        "제조" to listOf("기계 엔지니어", "전자 엔지니어", "품질 전문가"),
+        "법률" to listOf("변호사", "법무사", "컨설턴트")
+    )
+
+    Scaffold {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // 대분류 선택
+            DropdownMenuWithFixedTextSize(
+                label = "대분류",
+                items = categories,
+                selectedItem = selectedCategory,
+                onItemSelected = { selectedCategory = it },
+                width = 240.dp
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 세부 직군
+            DropdownMenuWithFixedTextSize(
+                label = "세부 직군",
+                items = subJobsMap[selectedCategory] ?: emptyList(),
+                selectedItem = selectedJob,
+                onItemSelected = { selectedJob = it },
+                width = 240.dp
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+
+            Button(
+                onClick = {
+                    navController.navigate("login")
+                },
+                enabled = selectedCategory != null && selectedJob != null,
+                modifier = Modifier.width(200.dp).height(48.dp)
+            ) {
+                Text("회원가입 완료")
+            }
+        }
+    }
+}
+
+@Composable
+fun DropdownMenuWithFixedTextSize(
+    label: String,
+    items: List<String>,
+    selectedItem: String?,
+    onItemSelected: (String) -> Unit,
+    width: Dp
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Box(
+            modifier = Modifier
+                .width(width)
+                .height(48.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer)
+        ) {
+            Button(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Text(
+                    text = selectedItem ?: "선택",
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                items.forEach { item ->
+                    DropdownMenuItem(
+                        text = { Text(item, style = MaterialTheme.typography.bodyMedium) },
+                        onClick = {
+                            onItemSelected(item)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewSignUpScreen() {
+    SignUpScreen(navController = rememberNavController())
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewSignUpCommonScreen() {
+    SignUpCommonScreen(navController = rememberNavController(), role = "면접자")
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewSignUpInterviewerScreen() {
+    SignUpInterviewerScreen(navController = rememberNavController())
+}
