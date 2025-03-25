@@ -1,5 +1,6 @@
 package com.example.hireapp.navigation
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -15,18 +16,6 @@ import com.example.hireapp.screens.applicant.CaptureScreen
 import com.example.hireapp.screens.interviewer.HomeIntrScreen
 import com.example.hireapp.screens.interviewer.MyPageIntrScreen
 
-sealed class Screen(val route: String) {
-    object Login : Screen("com/example/hireapp/ui/screens/login")
-    object SignUp : Screen("signup")
-    object HomeAppl : Screen("home_appl")
-    object HomeIntr : Screen("home_intr")
-    object MyPageAppl : Screen("mypage_appl")
-    object MyPageIntr : Screen("mypage_intr")
-    object Capture : Screen("capture")
-    object SignUpCommon : Screen("signup_common")
-    object SignUpInterviewer : Screen("signup_interviewer")
-}
-
 @Composable
 fun AppNavHost(navController: NavHostController = rememberNavController(), userType: String? = null) {
     val startDestination = when (userType) {
@@ -35,6 +24,7 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
         else -> Screen.Login.route  // 로그인 화면
     }
 
+    Log.d("UserType", userType.toString())
     NavHost(
         navController = navController,
         startDestination = startDestination
