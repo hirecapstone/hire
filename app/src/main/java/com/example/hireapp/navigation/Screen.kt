@@ -1,13 +1,18 @@
 package com.example.hireapp.navigation
 
 sealed class Screen(val route: String) {
-    object Login : Screen("com/example/hireapp/ui/screens/login")
-    object SignUp : Screen("com/example/hireapp/ui/screens/signup")
-    object HomeAppl : Screen("com/example/hireapp/ui/screens/home_appl")
-    object HomeIntr : Screen("com/example/hireapp/ui/screens/home_intr")
-    object MyPageAppl : Screen("com/example/hireapp/ui/screens/mypage_appl")
-    object MyPageIntr : Screen("com/example/hireapp/ui/screens/mypage_intr")
-    object Capture : Screen("com/example/hireapp/ui/screens/capture")
-    object SignUpCommon : Screen("com/example/hireapp/ui/screens/signup_common")
-    object SignUpInterviewer : Screen("com/example/hireapp/ui/screens/signup_interviewer")
+    // 공통
+    object Login : Screen("login")
+    object SignUp : Screen("signup")
+    object SignUpCommon : Screen("signup_common")
+    object SignUpInterviewer : Screen("signup_interviewer")
+
+    // 면접자 (Applicant)
+    object HomeAppl : Screen("home_appl")
+    object MyPageAppl : Screen("mypage_appl")
+    object Capture : Screen("capture")
+
+    // 면접관 (Interviewer)
+    object HomeIntr : Screen("home_intr")
+    object MyPageIntr : Screen("mypage_intr")
 }

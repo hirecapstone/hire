@@ -12,7 +12,7 @@ import com.example.hireapp.screens.login.SignUpCommonScreen
 import com.example.hireapp.screens.login.SignUpInterviewerScreen
 import com.example.hireapp.screens.applicant.HomeApplScreen
 import com.example.hireapp.screens.applicant.MyPageApplScreen
-import com.example.hireapp.screens.applicant.CaptureScreen
+import com.example.hireapp.screens.applicant.interviewcapture.CaptureScreen
 import com.example.hireapp.screens.interviewer.HomeIntrScreen
 import com.example.hireapp.screens.interviewer.MyPageIntrScreen
 
