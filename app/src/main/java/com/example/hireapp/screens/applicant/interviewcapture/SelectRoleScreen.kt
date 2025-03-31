@@ -48,12 +48,14 @@ fun SelectRoleScreen(onNext: () -> Unit) {
             onOptionSelected = { selectedSubcategory = it }
         )
 
-        // 정보입력칸, 텍스트 필드로 임시 구성
+        // 정보입력칸, 텍스트 필드로 구성
         OutlinedTextField(
             value = resumeText,
             onValueChange = { resumeText = it },
             label = { Text("이력 정보") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(450.dp) // 입력 필드 크기 확장
         )
 
         Spacer(modifier = Modifier.weight(1f))

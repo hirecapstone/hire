@@ -38,7 +38,7 @@ fun CameraSetupScreen(onNext: () -> Unit) {
                 permissions[Manifest.permission.RECORD_AUDIO] == true
     }
 
-    // 카메라, 녹롸 권한 요청
+    // 카메라, 녹음 권한 요청
     LaunchedEffect(Unit) {
         if (
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
