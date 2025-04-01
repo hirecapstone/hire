@@ -1,6 +1,7 @@
 package com.example.hireapp.screens.applicant.interviewcapture
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview as CameraPreview
@@ -22,6 +23,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
+import com.google.firebase.storage.storage
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -50,6 +54,10 @@ fun QuestionScreen(navController: NavController) {
     val recording = remember { mutableStateOf<Recording?>(null) }
     val recordedFiles = remember { mutableStateListOf<File>() }
 
+    var showRetryDialog by remember { mutableStateOf(false) }
+    var showReSaveDialog by remember { mutableStateOf(false) }
+    var errorOccurred by remember { mutableStateOf(false) }
+
     var showDialog by remember { mutableStateOf(false) }
 
     // 질문 단계별 타이머 및 녹화
@@ -63,30 +71,64 @@ fun QuestionScreen(navController: NavController) {
                 recording,
                 recordedFiles,
                 sessionId,
-                currentIndex
+                currentIndex,
+                onError = {
+                    errorOccurred = true
+                    showRetryDialog = true
+                }
             )
         }
 
-        while (timeLeft > 0) {
+        while (timeLeft > 0 && !errorOccurred) {
             delay(1000L)
             timeLeft--
         }
 
-        if (phase == "answer") {
-            stopRecording(recording)
-        }
+        if(!errorOccurred) {
+            if (phase == "answer") {
+                stopRecording(recording)
+            }
 
-        if (phase == "prepare") {
-            phase = "answer"
-        } else {
-            if (currentIndex < allQuestions.lastIndex) {
-                currentIndex++
-                phase = "prepare"
+            if (phase == "prepare") {
+                phase = "answer"
             } else {
-                showDialog = true // 마지막 질문 끝 → 저장 여부 팝업 표시
+                if (currentIndex < allQuestions.lastIndex) {
+                    currentIndex++
+                    phase = "prepare"
+                } else {
+                    showDialog = true // 마지막 질문 끝 → 저장 여부 팝업 표시
+                }
             }
         }
     }
+
+    // 영상 촬영 중 오류 발생시 재촬영 또는 촬영 중단
+    // TODO: 재촬영시 초세기가 멈추는 경우가 있음. 확인 필요
+    if (showRetryDialog) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("촬영 오류") },
+            text = { Text("촬영 중 오류가 발생했습니다. 현재 질문부터 다시 촬영하시겠습니까?") },
+            confirmButton = {
+                Button(onClick = {
+                    showRetryDialog = false
+                    errorOccurred = false
+                    phase = "prepare" // 현재 질문을 다시 촬영
+                }) {
+                    Text("다시 촬영")
+                }
+            },
+            dismissButton = {
+                Button(onClick = {
+                    showRetryDialog = false
+                    showDialog = true // 마지막 질문 끝 → 저장 여부 팝업 표시
+                }) {
+                    Text("촬영 중단")
+                }
+            }
+        )
+    }
+
 
     // 화면 구성
     Column(modifier = Modifier.fillMaxSize()) {
@@ -137,6 +179,8 @@ fun QuestionScreen(navController: NavController) {
         }
     }
 
+    var reSaveFlag:Boolean = false
+
     // 영상 저장 여부 팝업
     if (showDialog) {
         AlertDialog(
@@ -146,9 +190,18 @@ fun QuestionScreen(navController: NavController) {
             confirmButton = {
                 TextButton(onClick = {
                     showDialog = false
-                    navController.navigate(Screen.Capture.route) {
-                        popUpTo(Screen.Capture.route) { inclusive = true }
-                    }
+
+                    // storage 에 영상 업로드 후 db에 저장
+                    uploadVideoAndSave(
+                        recordedFiles,
+                        sessionId,
+                        reSaveFlag,
+                        navController,
+                        onError = {
+                            errorOccurred = true
+                            showReSaveDialog = true
+                        }
+                    )
                 }) {
                     Text("예")
                 }
@@ -167,6 +220,113 @@ fun QuestionScreen(navController: NavController) {
             }
         )
     }
+
+    if (showReSaveDialog) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("영상 저장 오류") },
+            text = { Text("영상 저장 중 오류가 발생했습니다. 다시 저장을 시도하시겠습니까?") },
+            confirmButton = {
+                Button(onClick = {
+                    showReSaveDialog = false
+                    errorOccurred = false
+                    reSaveFlag = true
+
+                    uploadVideoAndSave(
+                        recordedFiles,
+                        sessionId,
+                        reSaveFlag,
+                        navController,
+                        onError = {
+                            errorOccurred = true
+                            showReSaveDialog = true
+                        }
+                    )
+                }) {
+                    Text("다시 저장")
+                }
+            },
+            dismissButton = {
+                Button(onClick = {
+                    showRetryDialog = false
+                    navController.navigate(Screen.Capture.route) {
+                        popUpTo(Screen.Capture.route) { inclusive = true }
+                    }
+                }) {
+                    Text("저장 취소")
+                }
+            }
+        )
+    }
+}
+
+/**
+ * 영상을 storage에 업로드 하고 db에 저장
+ *
+ * @param recordedFiles 촬영된 영상 목록
+ * @param sessionId 영상 촬영 시작한 밀리초 기준, 영상 폴더의 path 명으로 사용함
+ *
+ * @throws onError storage 업로드 실패, db 저장 실패 시 재시도 요청
+ */
+fun uploadVideoAndSave(
+    recordedFiles: SnapshotStateList<File>,
+    sessionId: String,
+    reSaveFlag: Boolean,
+    navController: NavController,
+    onError: () -> Unit
+) {
+    val db = Firebase.firestore
+    val storage = Firebase.storage
+    val storageRef = storage.reference
+    val VIDEO_PATH = "interview-films/${sessionId}"
+
+    val videoUrls = mutableListOf<String>()
+
+    // 저장을 다시 시도하는 경우 기존에 저장돼있던 영상들 삭제
+    if(reSaveFlag) {
+        storageRef.child(VIDEO_PATH).listAll().addOnSuccessListener { listResult ->
+            listResult.items.forEach { it.delete() }
+        }
+    }
+
+    // storage에 업로드
+    recordedFiles.forEach { file ->
+        val fileUri = Uri.fromFile(file)
+        val videoRef = storageRef.child("${VIDEO_PATH}/${file.name}")
+
+        videoRef.putFile(fileUri).addOnSuccessListener {
+            videoRef.downloadUrl.addOnSuccessListener { uri ->
+                videoUrls.add(uri.toString())
+            }
+        }.addOnFailureListener {
+            Log.e("Storage", "영상 저장 실패: ${it.message}")
+            onError()
+        }
+    }
+
+    // db에 저장
+    // TODO: videos 배열은 전달되나, 저장되지 않는 문제 해결 필요
+    val videoData = hashMapOf(
+        "videoPath" to VIDEO_PATH,
+        "videos" to videoUrls.map { mapOf("fileUrl" to it) }
+    )
+
+    db.collection("videos")
+        .document(sessionId)
+        .set(videoData)
+        .addOnSuccessListener {
+            Log.d("Firestore", "URL 저장 성공")
+            for (recordedFile in recordedFiles) {
+                recordedFile.delete()
+            }
+            navController.navigate(Screen.Capture.route) {
+                popUpTo(Screen.Capture.route) { inclusive = true }
+            }
+        }
+        .addOnFailureListener {
+            Log.e("Firestore", "URL 저장 실패: ${it.message}")
+            onError()
+        }
 }
 
 @Composable
@@ -222,36 +382,44 @@ fun startRecording(
     recordingRef: MutableState<Recording?>,
     recordedFiles: SnapshotStateList<File>,
     sessionId: String,
-    questionIndex: Int
+    questionIndex: Int,
+    onError: () -> Unit
 ) {
-    val fileName = "${sessionId}_q${questionIndex + 1}.mp4"
-    val file = File(context.cacheDir, fileName)
+    try {
+        val fileName = "${sessionId}_q${questionIndex + 1}.mp4"
+        val file = File(context.filesDir, fileName)
 
-    Log.d("VideoCapture", " 녹화 시작 준비: $fileName")
+        Log.d("VideoCapture", " 녹화 시작 준비: $fileName")
 
-    recordedFiles.add(file)
+        recordedFiles.add(file)
 
-    val outputOptions = FileOutputOptions.Builder(file).build()
+        val outputOptions = FileOutputOptions.Builder(file).build()
 
-    val recording = videoCapture?.output
-        ?.prepareRecording(context, outputOptions)
-        ?.start(ContextCompat.getMainExecutor(context)) { event ->
-            if (event is VideoRecordEvent.Finalize) {
-                if (event.hasError()) {
-                    Log.e("VideoCapture", " 녹화 실패: ${event.error}")
-                } else {
-                    Log.d("VideoCapture", " 녹화 완료: ${file.absolutePath}")
+        val recording = videoCapture?.output
+            ?.prepareRecording(context, outputOptions)
+            ?.start(ContextCompat.getMainExecutor(context)) { event ->
+                if (event is VideoRecordEvent.Finalize) {
+                    if (event.hasError()) {
+                        Log.e("VideoCapture", " 녹화 실패: ${event.error}")
+                        onError()
+                    } else {
+                        Log.d("VideoCapture", " 녹화 완료: ${file.absolutePath}")
+                    }
                 }
             }
+
+        if (recording == null) {
+            Log.e("VideoCapture", " 녹화 시작 실패: videoCapture == null")
+            onError()
+        } else {
+            Log.d("VideoCapture", " 녹화 시작됨: $fileName")
         }
 
-    if (recording == null) {
-        Log.e("VideoCapture", " 녹화 시작 실패: videoCapture == null")
-    } else {
-        Log.d("VideoCapture", " 녹화 시작됨: $fileName")
+        recordingRef.value = recording
+    } catch (e: Exception) {
+        Log.e("Recording", "녹화 중 오류 발생: ${e.message}")
+        onError()
     }
-
-    recordingRef.value = recording
 }
 
 
