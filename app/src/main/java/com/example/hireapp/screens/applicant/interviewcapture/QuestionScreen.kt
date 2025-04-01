@@ -55,6 +55,7 @@ fun QuestionScreen(navController: NavController) {
     val recordedFiles = remember { mutableStateListOf<File>() }
 
     var showRetryDialog by remember { mutableStateOf(false) }
+    var showReSaveDialog by remember { mutableStateOf(false) }
     var errorOccurred by remember { mutableStateOf(false) }
 
     var showDialog by remember { mutableStateOf(false) }
@@ -102,9 +103,10 @@ fun QuestionScreen(navController: NavController) {
     }
 
     // 영상 촬영 중 오류 발생시 재촬영 또는 촬영 중단
+    // TODO: 재촬영시 초세기가 멈추는 경우가 있음. 확인 필요
     if (showRetryDialog) {
         AlertDialog(
-            onDismissRequest = { showRetryDialog = false },
+            onDismissRequest = { },
             title = { Text("촬영 오류") },
             text = { Text("촬영 중 오류가 발생했습니다. 현재 질문부터 다시 촬영하시겠습니까?") },
             confirmButton = {
@@ -177,6 +179,8 @@ fun QuestionScreen(navController: NavController) {
         }
     }
 
+    var reSaveFlag:Boolean = false
+
     // 영상 저장 여부 팝업
     if (showDialog) {
         AlertDialog(
@@ -186,44 +190,18 @@ fun QuestionScreen(navController: NavController) {
             confirmButton = {
                 TextButton(onClick = {
                     showDialog = false
-                    val db = Firebase.firestore
-                    val storage = Firebase.storage
-                    val storageRef = storage.reference
 
                     // storage 에 영상 업로드 후 db에 저장
-                    // TODO: firestore 업로드 할 영상 어떻게 분류할 지 결정
-                    recordedFiles.forEach { file ->
-                        val fileUri = Uri.fromFile(file)
-                        val videoRef = storageRef.child("interview-films/${sessionId}/${file.name}")
-
-                        val uploadTask = videoRef.putFile(fileUri)
-
-                        uploadTask.addOnSuccessListener {
-                            videoRef.downloadUrl.addOnSuccessListener { uri ->
-                                val downloadUrl = uri.toString()
-
-                                val videoData = hashMapOf(
-                                    "videoUrl" to downloadUrl,
-                                    "timestamp" to System.currentTimeMillis()
-                                )
-
-                                db.collection("videos")
-                                    .add(videoData)
-                                    .addOnSuccessListener {
-                                        Log.d("Firestore", "URL 저장 성공")
-                                        file.delete()
-                                    }
-                                    .addOnFailureListener {
-                                        Log.e("Firestore", "URL 저장 실패: ${it.message}")
-                                    }
-
-                            }
+                    uploadVideoAndSave(
+                        recordedFiles,
+                        sessionId,
+                        reSaveFlag,
+                        navController,
+                        onError = {
+                            errorOccurred = true
+                            showReSaveDialog = true
                         }
-                    }
-
-                    navController.navigate(Screen.Capture.route) {
-                        popUpTo(Screen.Capture.route) { inclusive = true }
-                    }
+                    )
                 }) {
                     Text("예")
                 }
@@ -242,6 +220,113 @@ fun QuestionScreen(navController: NavController) {
             }
         )
     }
+
+    if (showReSaveDialog) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("영상 저장 오류") },
+            text = { Text("영상 저장 중 오류가 발생했습니다. 다시 저장을 시도하시겠습니까?") },
+            confirmButton = {
+                Button(onClick = {
+                    showReSaveDialog = false
+                    errorOccurred = false
+                    reSaveFlag = true
+
+                    uploadVideoAndSave(
+                        recordedFiles,
+                        sessionId,
+                        reSaveFlag,
+                        navController,
+                        onError = {
+                            errorOccurred = true
+                            showReSaveDialog = true
+                        }
+                    )
+                }) {
+                    Text("다시 저장")
+                }
+            },
+            dismissButton = {
+                Button(onClick = {
+                    showRetryDialog = false
+                    navController.navigate(Screen.Capture.route) {
+                        popUpTo(Screen.Capture.route) { inclusive = true }
+                    }
+                }) {
+                    Text("저장 취소")
+                }
+            }
+        )
+    }
+}
+
+/**
+ * 영상을 storage에 업로드 하고 db에 저장
+ *
+ * @param recordedFiles 촬영된 영상 목록
+ * @param sessionId 영상 촬영 시작한 밀리초 기준, 영상 폴더의 path 명으로 사용함
+ *
+ * @throws onError storage 업로드 실패, db 저장 실패 시 재시도 요청
+ */
+fun uploadVideoAndSave(
+    recordedFiles: SnapshotStateList<File>,
+    sessionId: String,
+    reSaveFlag: Boolean,
+    navController: NavController,
+    onError: () -> Unit
+) {
+    val db = Firebase.firestore
+    val storage = Firebase.storage
+    val storageRef = storage.reference
+    val VIDEO_PATH = "interview-films/${sessionId}"
+
+    val videoUrls = mutableListOf<String>()
+
+    // 저장을 다시 시도하는 경우 기존에 저장돼있던 영상들 삭제
+    if(reSaveFlag) {
+        storageRef.child(VIDEO_PATH).listAll().addOnSuccessListener { listResult ->
+            listResult.items.forEach { it.delete() }
+        }
+    }
+
+    // storage에 업로드
+    recordedFiles.forEach { file ->
+        val fileUri = Uri.fromFile(file)
+        val videoRef = storageRef.child("${VIDEO_PATH}/${file.name}")
+
+        videoRef.putFile(fileUri).addOnSuccessListener {
+            videoRef.downloadUrl.addOnSuccessListener { uri ->
+                videoUrls.add(uri.toString())
+            }
+        }.addOnFailureListener {
+            Log.e("Storage", "영상 저장 실패: ${it.message}")
+            onError()
+        }
+    }
+
+    // db에 저장
+    // TODO: videos 배열은 전달되나, 저장되지 않는 문제 해결 필요
+    val videoData = hashMapOf(
+        "videoPath" to VIDEO_PATH,
+        "videos" to videoUrls.map { mapOf("fileUrl" to it) }
+    )
+
+    db.collection("videos")
+        .document(sessionId)
+        .set(videoData)
+        .addOnSuccessListener {
+            Log.d("Firestore", "URL 저장 성공")
+            for (recordedFile in recordedFiles) {
+                recordedFile.delete()
+            }
+            navController.navigate(Screen.Capture.route) {
+                popUpTo(Screen.Capture.route) { inclusive = true }
+            }
+        }
+        .addOnFailureListener {
+            Log.e("Firestore", "URL 저장 실패: ${it.message}")
+            onError()
+        }
 }
 
 @Composable
@@ -302,7 +387,7 @@ fun startRecording(
 ) {
     try {
         val fileName = "${sessionId}_q${questionIndex + 1}.mp4"
-        val file = File(context.cacheDir, fileName)
+        val file = File(context.filesDir, fileName)
 
         Log.d("VideoCapture", " 녹화 시작 준비: $fileName")
 
