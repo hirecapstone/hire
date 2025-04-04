@@ -6,6 +6,7 @@ sealed class Screen(val route: String) {
     object SignUp : Screen("signup")
     object SignUpCommon : Screen("signup_common")
     object SignUpInterviewer : Screen("signup_interviewer")
+    object VideoDetail : Screen("video_detail")
 
     // 면접자 (Applicant)
     object HomeAppl : Screen("home_appl")

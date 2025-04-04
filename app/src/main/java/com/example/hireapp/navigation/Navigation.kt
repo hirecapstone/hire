@@ -15,6 +15,9 @@ import com.example.hireapp.screens.applicant.MyPageApplScreen
 import com.example.hireapp.screens.applicant.interviewcapture.CaptureScreen
 import com.example.hireapp.screens.interviewer.HomeIntrScreen
 import com.example.hireapp.screens.interviewer.MyPageIntrScreen
+import com.example.hireapp.screens.VideoDetailScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 
 @Composable
 fun AppNavHost(navController: NavHostController = rememberNavController(), userType: String? = null) {
@@ -41,5 +44,14 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
         composable(Screen.MyPageAppl.route) { MyPageApplScreen(navController) }
         composable(Screen.MyPageIntr.route) { MyPageIntrScreen(navController) }
         composable(Screen.Capture.route) { CaptureScreen(navController) }
+
+        // 영상 상세 보기 (댓글 포함)
+        composable(
+            route = "${Screen.VideoDetail.route}/{id}",
+            arguments = listOf(navArgument("id") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val videoId = backStackEntry.arguments?.getString("id") ?: return@composable
+            VideoDetailScreen(videoId = videoId, navController = navController)
+        }
     }
 }
