@@ -20,8 +20,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.hireapp.models.VideoItem
 import com.example.hireapp.navigation.Screen
-import com.example.hireapp.screens.interviewer.VideoItem
 
 @Composable
 fun HomeApplScreen(navController: NavController) {
@@ -116,10 +116,6 @@ fun HomeApplScreen(navController: NavController) {
         }
     }
 }
-
-data class VideoItem(val id: String, val title: String, val userName: String)
-data class Comment(val user: String, val text: String)
-
 
 @Preview(showBackground = true)
 @Composable

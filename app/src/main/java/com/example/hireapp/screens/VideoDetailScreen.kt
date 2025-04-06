@@ -19,12 +19,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.hireapp.screens.applicant.Comment
-import com.example.hireapp.screens.interviewer.VideoItem
+import com.example.hireapp.models.Comment
+import com.example.hireapp.models.VideoItem
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
-// 더미데이터
 val sampleVideos = listOf(
     VideoItem("1", "IT 직무 면접", "이름0"),
     VideoItem("2", "디자인 직무 면접", "이름1"),
@@ -47,7 +46,6 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
         return
     }
 
-    // 더미데이터
     val comments = remember {
         mutableStateListOf(
             Comment("user1", "피드백1"),
@@ -95,7 +93,6 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // 영상 + 댓글 목록 (스크롤 영역)
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -111,7 +108,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     )
                     Text(text = video.userName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Box( // 더미 UI - 실제 영상 썸네일/재생기로 교체 예정
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
@@ -130,7 +127,6 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                 }
             }
 
-            // 댓글 입력창 (고정)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -155,5 +151,3 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
         }
     }
 }
-
-
