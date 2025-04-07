@@ -23,9 +23,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
-import com.google.firebase.Firebase
-import com.google.firebase.firestore.firestore
-import com.google.firebase.storage.storage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -39,7 +39,7 @@ fun QuestionScreen(navController: NavController) {
     val sessionId = remember { "session_${System.currentTimeMillis()}" }
 
     // 기본 질문 + AI 생성 질문
-    val fixedQuestions = listOf( // 공통 질문 정한거 기억 안나서 임의로 작성했어요
+    val fixedQuestions = listOf(
         "자기소개 해주세요.",
         "지원 동기는 무엇인가요?",
         "본인의 장단점을 말해주세요."
@@ -96,14 +96,13 @@ fun QuestionScreen(navController: NavController) {
                     currentIndex++
                     phase = "prepare"
                 } else {
-                    showDialog = true // 마지막 질문 끝 → 저장 여부 팝업 표시
+                    showDialog = true // 마지막 질문 끝 -> 저장 여부 팝업 표시
                 }
             }
         }
     }
 
     // 영상 촬영 중 오류 발생시 재촬영 또는 촬영 중단
-    // TODO: 재촬영시 초세기가 멈추는 경우가 있음. 확인 필요
     if (showRetryDialog) {
         AlertDialog(
             onDismissRequest = { },
@@ -121,7 +120,7 @@ fun QuestionScreen(navController: NavController) {
             dismissButton = {
                 Button(onClick = {
                     showRetryDialog = false
-                    showDialog = true // 마지막 질문 끝 → 저장 여부 팝업 표시
+                    showDialog = true // 마지막 질문 끝 -> 저장 여부 팝업 표시
                 }) {
                     Text("촬영 중단")
                 }
@@ -200,6 +199,11 @@ fun QuestionScreen(navController: NavController) {
                         onError = {
                             errorOccurred = true
                             showReSaveDialog = true
+                        },
+                        onSuccess = {
+                            navController.navigate(Screen.Capture.route) {
+                                popUpTo(Screen.Capture.route) { inclusive = true }
+                            }
                         }
                     )
                 }) {
@@ -240,6 +244,11 @@ fun QuestionScreen(navController: NavController) {
                         onError = {
                             errorOccurred = true
                             showReSaveDialog = true
+                        },
+                        onSuccess = {
+                            navController.navigate(Screen.Capture.route) {
+                                popUpTo(Screen.Capture.route) { inclusive = true }
+                            }
                         }
                     )
                 }) {
@@ -273,16 +282,18 @@ fun uploadVideoAndSave(
     sessionId: String,
     reSaveFlag: Boolean,
     navController: NavController,
-    onError: () -> Unit
+    onError: () -> Unit,
+    onSuccess: () -> Unit
 ) {
-    val db = Firebase.firestore
-    val storage = Firebase.storage
+    val db = FirebaseFirestore.getInstance()
+    val storage = FirebaseStorage.getInstance()
+    val auth = FirebaseAuth.getInstance()
     val storageRef = storage.reference
     val VIDEO_PATH = "interview-films/${sessionId}"
 
     val videoUrls = mutableListOf<String>()
 
-    // 저장을 다시 시도하는 경우 기존에 저장돼있던 영상들 삭제
+    // 저장을 다시 시도하는 경우 기존에 저장됐던 영상들 삭제
     if(reSaveFlag) {
         storageRef.child(VIDEO_PATH).listAll().addOnSuccessListener { listResult ->
             listResult.items.forEach { it.delete() }
@@ -297,36 +308,36 @@ fun uploadVideoAndSave(
         videoRef.putFile(fileUri).addOnSuccessListener {
             videoRef.downloadUrl.addOnSuccessListener { uri ->
                 videoUrls.add(uri.toString())
+
+                if (videoUrls.size == recordedFiles.size) {
+                    // db에 저장
+                    val videoData = hashMapOf(
+                        "uploader" to (auth.currentUser?.displayName ?: "Unknown"),
+                        "videoPath" to VIDEO_PATH,
+                        "videos" to videoUrls.map { mapOf("fileUrl" to it) }
+                    )
+
+                    db.collection("videos")
+                        .document(sessionId)
+                        .set(videoData)
+                        .addOnSuccessListener {
+                            Log.d("Firestore", "URL 저장 성공")
+                            for (recordedFile in recordedFiles) {
+                                recordedFile.delete()
+                            }
+                            onSuccess()
+                        }
+                        .addOnFailureListener {
+                            Log.e("Firestore", "URL 저장 실패: ${it.message}")
+                            onError()
+                        }
+                }
             }
         }.addOnFailureListener {
             Log.e("Storage", "영상 저장 실패: ${it.message}")
             onError()
         }
     }
-
-    // db에 저장
-    // TODO: videos 배열은 전달되나, 저장되지 않는 문제 해결 필요
-    val videoData = hashMapOf(
-        "videoPath" to VIDEO_PATH,
-        "videos" to videoUrls.map { mapOf("fileUrl" to it) }
-    )
-
-    db.collection("videos")
-        .document(sessionId)
-        .set(videoData)
-        .addOnSuccessListener {
-            Log.d("Firestore", "URL 저장 성공")
-            for (recordedFile in recordedFiles) {
-                recordedFile.delete()
-            }
-            navController.navigate(Screen.Capture.route) {
-                popUpTo(Screen.Capture.route) { inclusive = true }
-            }
-        }
-        .addOnFailureListener {
-            Log.e("Firestore", "URL 저장 실패: ${it.message}")
-            onError()
-        }
 }
 
 @Composable
@@ -422,10 +433,9 @@ fun startRecording(
     }
 }
 
-
+// 녹화 중지
 fun stopRecording(recordingRef: MutableState<Recording?>) {
     Log.d("VideoCapture", " 녹화 중지 요청됨")
     recordingRef.value?.stop()
     recordingRef.value = null
 }
-
