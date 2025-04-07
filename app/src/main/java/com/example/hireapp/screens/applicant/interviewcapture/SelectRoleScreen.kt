@@ -1,6 +1,9 @@
 package com.example.hireapp.screens.applicant.interviewcapture
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
@@ -8,6 +11,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 
 @Composable
 fun SelectRoleScreen(onNext: () -> Unit) {
@@ -21,47 +26,75 @@ fun SelectRoleScreen(onNext: () -> Unit) {
 
     var selectedCategory by remember { mutableStateOf("") }
     var selectedSubcategory by remember { mutableStateOf("") }
-    var resumeText by remember { mutableStateOf("") }
+
+    var name by remember { mutableStateOf("") }
+    var contact by remember { mutableStateOf("") }
+    var major by remember { mutableStateOf("") }
+    var career by remember { mutableStateOf("") }
+    var achievements by remember { mutableStateOf("") }
+    var certificates by remember { mutableStateOf("") }
+    var projects by remember { mutableStateOf("") }
+    var roles by remember { mutableStateOf("") }
+
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 대분류
-        DropdownMenuBox(
-            label = "대분류",
-            options = categories,
-            selectedOption = selectedCategory,
-            onOptionSelected = {
-                selectedCategory = it
-                selectedSubcategory = ""
-            }
-        )
+        DropdownMenuBox("대분류", categories, selectedCategory) {
+            selectedCategory = it
+            selectedSubcategory = ""
+        }
 
-        // 세부 직군
-        DropdownMenuBox(
-            label = "세부 직군",
-            options = jobMap[selectedCategory] ?: emptyList(),
-            selectedOption = selectedSubcategory,
-            onOptionSelected = { selectedSubcategory = it }
-        )
+        DropdownMenuBox("세부 직군", jobMap[selectedCategory] ?: emptyList(), selectedSubcategory) {
+            selectedSubcategory = it
+        }
 
-        // 정보입력칸, 텍스트 필드로 구성
-        OutlinedTextField(
-            value = resumeText,
-            onValueChange = { resumeText = it },
-            label = { Text("이력 정보") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(450.dp) // 입력 필드 크기 확장
-        )
+        Text("1. 개인정보", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("이름") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = contact, onValueChange = { contact = it }, label = { Text("연락처(이메일, 전화번호)") }, modifier = Modifier.fillMaxWidth())
 
-        Spacer(modifier = Modifier.weight(1f))
+        Text("2. 학력", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(value = major, onValueChange = { major = it }, label = { Text("전공") }, modifier = Modifier.fillMaxWidth())
+
+        Text("3. 경력", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(value = career, onValueChange = { career = it }, label = { Text("직무 및 담당 업무") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = achievements, onValueChange = { achievements = it }, label = { Text("주요 성과") }, modifier = Modifier.fillMaxWidth())
+
+        Text("4. 자격증", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(value = certificates, onValueChange = { certificates = it }, label = { Text("관련 자격증") }, modifier = Modifier.fillMaxWidth())
+
+        Text("5. 프로젝트 및 경험", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(value = projects, onValueChange = { projects = it }, label = { Text("수행한 프로젝트") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = roles, onValueChange = { roles = it }, label = { Text("역할 및 기여한 부분") }, modifier = Modifier.fillMaxWidth())
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = onNext,
+            onClick = {
+                val db = Firebase.firestore
+                val data = hashMapOf(
+                    "category" to selectedCategory,
+                    "job" to selectedSubcategory,
+                    "name" to name,
+                    "contact" to contact,
+                    "major" to major,
+                    "career" to career,
+                    "achievements" to achievements,
+                    "certificates" to certificates,
+                    "projects" to projects,
+                    "roles" to roles
+                )
+
+                db.collection("select_role")
+                    .add(data)
+                    .addOnSuccessListener { onNext() }
+                    .addOnFailureListener { e -> Log.w("Firebase", "Error adding document", e) }
+            },
             enabled = selectedCategory.isNotEmpty() && selectedSubcategory.isNotEmpty(),
             modifier = Modifier.fillMaxWidth()
         ) {
