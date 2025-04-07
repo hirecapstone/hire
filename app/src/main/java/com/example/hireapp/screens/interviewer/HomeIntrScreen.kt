@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.util.LoadingState
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.firestore
@@ -41,6 +42,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 @Composable
 fun HomeIntrScreen(navController: NavController) {
@@ -53,6 +55,8 @@ fun HomeIntrScreen(navController: NavController) {
      */
     // TODO: 영상 저장 형식 확정한 후 재작업 필요
     fun loadVideosWithFilter(filterItems: List<String>, size: Int) {
+        LoadingState.show()
+
         val db = Firebase.firestore
         val videoRef = db.collection("vidoes")
 
@@ -78,6 +82,10 @@ fun HomeIntrScreen(navController: NavController) {
             } catch (e: Exception) {
                 // TODO: 한 페이지 단위가 아닌, 게시물 당 예외 처리하도록 범위 변경 (지금은 페이지 단위)
                 Log.d("Load_video", "비디오 로드 중 오류가 발생했습니다.")
+            }
+
+            withContext(Dispatchers.Main) {
+                LoadingState.hide()
             }
         }
     }

@@ -12,6 +12,7 @@ import com.example.hireapp.screens.login.LoginScreen
 import com.example.hireapp.screens.login.SignUpCommonScreen
 import com.example.hireapp.screens.login.SignUpInterviewerScreen
 import com.example.hireapp.screens.login.SignUpScreen
+import com.example.hireapp.util.GlobalLoadingScreen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.auth.ktx.auth
@@ -28,6 +29,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MyApp()
+            GlobalLoadingScreen()
         }
     }
 }

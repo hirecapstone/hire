@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.util.LoadingState
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.firestore
 import com.google.firebase.storage.storage
@@ -285,6 +286,8 @@ fun uploadVideoAndSave(
     val storageRef = storage.reference
     val VIDEO_PATH = "interview-films/${sessionId}"
 
+    LoadingState.show()
+
     CoroutineScope(Dispatchers.IO).launch {
         try {
             // 저장을 다시 시도하는 경우 기존에 저장돼있던 영상들 삭제
@@ -329,6 +332,8 @@ fun uploadVideoAndSave(
             withContext(Dispatchers.Main) {
                 onError()
             }
+        } finally {
+            LoadingState.hide()
         }
 
     }
