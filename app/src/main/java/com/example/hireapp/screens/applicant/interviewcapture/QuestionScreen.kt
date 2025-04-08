@@ -4,13 +4,35 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.Preview as CameraPreview
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.video.*
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,9 +46,9 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
 import com.example.hireapp.util.LoadingState
-import com.google.firebase.Firebase
-import com.google.firebase.firestore.firestore
-import com.google.firebase.storage.storage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -34,6 +56,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
+import androidx.camera.core.Preview as CameraPreview
 
 @Composable
 fun QuestionScreen(navController: NavController) {
@@ -90,7 +113,7 @@ fun QuestionScreen(navController: NavController) {
             timeLeft--
         }
 
-        if(!errorOccurred) {
+        if (!errorOccurred) {
             if (phase == "answer") {
                 stopRecording(recording)
             }
@@ -157,7 +180,10 @@ fun QuestionScreen(navController: NavController) {
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("질문 ${currentIndex + 1} / ${allQuestions.size}", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "질문 ${currentIndex + 1} / ${allQuestions.size}",
+                style = MaterialTheme.typography.titleMedium
+            )
             Spacer(modifier = Modifier.height(12.dp))
             Text(allQuestions[currentIndex], style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(24.dp))
@@ -184,7 +210,7 @@ fun QuestionScreen(navController: NavController) {
         }
     }
 
-    var reSaveFlag:Boolean = false
+    var reSaveFlag: Boolean = false
 
     // 영상 저장 여부 팝업
     if (showDialog) {
@@ -205,11 +231,6 @@ fun QuestionScreen(navController: NavController) {
                         onError = {
                             errorOccurred = true
                             showReSaveDialog = true
-                        },
-                        onSuccess = {
-                            navController.navigate(Screen.Capture.route) {
-                                popUpTo(Screen.Capture.route) { inclusive = true }
-                            }
                         }
                     )
                 }) {
@@ -250,11 +271,6 @@ fun QuestionScreen(navController: NavController) {
                         onError = {
                             errorOccurred = true
                             showReSaveDialog = true
-                        },
-                        onSuccess = {
-                            navController.navigate(Screen.Capture.route) {
-                                popUpTo(Screen.Capture.route) { inclusive = true }
-                            }
                         }
                     )
                 }) {
@@ -288,8 +304,7 @@ fun uploadVideoAndSave(
     sessionId: String,
     reSaveFlag: Boolean,
     navController: NavController,
-    onError: () -> Unit,
-    onSuccess: () -> Unit
+    onError: () -> Unit
 ) {
     val db = FirebaseFirestore.getInstance()
     val storage = FirebaseStorage.getInstance()
@@ -302,7 +317,7 @@ fun uploadVideoAndSave(
     CoroutineScope(Dispatchers.IO).launch {
         try {
             // 저장을 다시 시도하는 경우 기존에 저장돼있던 영상들 삭제
-            if(reSaveFlag) {
+            if (reSaveFlag) {
                 storageRef.child(VIDEO_PATH).listAll().addOnSuccessListener { listResult ->
                     listResult.items.forEach { it.delete() }
                 }
@@ -332,8 +347,8 @@ fun uploadVideoAndSave(
                 .await()
 
             // 저장 완료되면 기존 영상들 삭제
-            withContext(Dispatchers.Main){
-                recordedFiles.forEach{ it.delete() }
+            withContext(Dispatchers.Main) {
+                recordedFiles.forEach { it.delete() }
                 navController.navigate(Screen.Capture.route) {
                     popUpTo(Screen.Capture.route) { inclusive = true }
                 }
