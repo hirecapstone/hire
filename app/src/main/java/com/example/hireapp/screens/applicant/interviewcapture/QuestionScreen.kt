@@ -23,10 +23,16 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
+import com.example.hireapp.util.LoadingState
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
+import com.google.firebase.storage.storage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -291,51 +297,54 @@ fun uploadVideoAndSave(
     val storageRef = storage.reference
     val VIDEO_PATH = "interview-films/${sessionId}"
 
-    val videoUrls = mutableListOf<String>()
+    LoadingState.show()
 
-    // 저장을 다시 시도하는 경우 기존에 저장됐던 영상들 삭제
-    if(reSaveFlag) {
-        storageRef.child(VIDEO_PATH).listAll().addOnSuccessListener { listResult ->
-            listResult.items.forEach { it.delete() }
-        }
-    }
-
-    // storage에 업로드
-    recordedFiles.forEach { file ->
-        val fileUri = Uri.fromFile(file)
-        val videoRef = storageRef.child("${VIDEO_PATH}/${file.name}")
-
-        videoRef.putFile(fileUri).addOnSuccessListener {
-            videoRef.downloadUrl.addOnSuccessListener { uri ->
-                videoUrls.add(uri.toString())
-
-                if (videoUrls.size == recordedFiles.size) {
-                    // db에 저장
-                    val videoData = hashMapOf(
-                        "uploader" to (auth.currentUser?.displayName ?: "Unknown"),
-                        "videoPath" to VIDEO_PATH,
-                        "videos" to videoUrls.map { mapOf("fileUrl" to it) }
-                    )
-
-                    db.collection("videos")
-                        .document(sessionId)
-                        .set(videoData)
-                        .addOnSuccessListener {
-                            Log.d("Firestore", "URL 저장 성공")
-                            for (recordedFile in recordedFiles) {
-                                recordedFile.delete()
-                            }
-                            onSuccess()
-                        }
-                        .addOnFailureListener {
-                            Log.e("Firestore", "URL 저장 실패: ${it.message}")
-                            onError()
-                        }
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            // 저장을 다시 시도하는 경우 기존에 저장돼있던 영상들 삭제
+            if(reSaveFlag) {
+                storageRef.child(VIDEO_PATH).listAll().addOnSuccessListener { listResult ->
+                    listResult.items.forEach { it.delete() }
                 }
             }
-        }.addOnFailureListener {
-            Log.e("Storage", "영상 저장 실패: ${it.message}")
-            onError()
+
+            val videoUrls = mutableListOf<String>()
+
+            // storage에 업로드
+            recordedFiles.forEach { file ->
+                val fileUri = Uri.fromFile(file)
+                val videoRef = storageRef.child("${VIDEO_PATH}/${file.name}")
+
+                videoRef.putFile(fileUri).await()
+                val downloadUrl = videoRef.downloadUrl.await()
+                videoUrls.add(downloadUrl.toString())
+            }
+
+            // db에 저장
+            val videoData = hashMapOf(
+                "videoPath" to VIDEO_PATH,
+                "videos" to videoUrls.map { mapOf("fileUrl" to it) }
+            )
+
+            db.collection("videos")
+                .document(sessionId)
+                .set(videoData)
+                .await()
+
+            // 저장 완료되면 기존 영상들 삭제
+            withContext(Dispatchers.Main){
+                recordedFiles.forEach{ it.delete() }
+                navController.navigate(Screen.Capture.route) {
+                    popUpTo(Screen.Capture.route) { inclusive = true }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("UploadError", "업로드 실패: ${e.message}")
+            withContext(Dispatchers.Main) {
+                onError()
+            }
+        } finally {
+            LoadingState.hide()
         }
     }
 }

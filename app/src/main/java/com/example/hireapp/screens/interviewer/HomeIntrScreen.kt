@@ -1,8 +1,18 @@
 package com.example.hireapp.screens.interviewer
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -10,8 +20,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,9 +34,62 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.util.LoadingState
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.firestore.firestore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 @Composable
 fun HomeIntrScreen(navController: NavController) {
+
+    /**
+     * db의 면접 영상들을 필터 조건에 맞게 불러오는 메서드
+     *
+     * @param filterItems 필터 조건
+     * @param size 불러올 영상 개수
+     */
+    // TODO: 영상 저장 형식 확정한 후 재작업 필요
+    fun loadVideosWithFilter(filterItems: List<String>, size: Int) {
+        LoadingState.show()
+
+        val db = Firebase.firestore
+        val videoRef = db.collection("vidoes")
+
+        // 면접 게시물 별 영상들의 url을 저장함.
+        // TODO: MediaPlayer 등을 이용하여 스트리밍 형식으로 url의 영상 재생하기
+        val filteredVideoList = mutableListOf<List<String>>()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val docs: QuerySnapshot
+
+                if (filterItems.isNotEmpty()) {
+                    docs = videoRef.whereIn("category", filterItems).get().await()
+                } else {
+                    docs = videoRef.get().await()
+                }
+
+                docs.forEach { doc ->
+                    val fieldList = doc.get("videos") as? List<*>
+                    val videoUrls = fieldList?.filterIsInstance<String>() ?: emptyList()
+                    filteredVideoList.add(videoUrls)
+                }
+            } catch (e: Exception) {
+                // TODO: 한 페이지 단위가 아닌, 게시물 당 예외 처리하도록 범위 변경 (지금은 페이지 단위)
+                Log.d("Load_video", "비디오 로드 중 오류가 발생했습니다.")
+            }
+
+            withContext(Dispatchers.Main) {
+                LoadingState.hide()
+            }
+        }
+    }
+
     val videoList = remember {
         listOf( // 더미데이터
             VideoItem("1", "IT 직무 면접", "이름0"),
