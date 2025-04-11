@@ -5,35 +5,11 @@ import android.net.Uri
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.video.FileOutputOptions
-import androidx.camera.video.Quality
-import androidx.camera.video.QualitySelector
-import androidx.camera.video.Recorder
-import androidx.camera.video.Recording
-import androidx.camera.video.VideoCapture
-import androidx.camera.video.VideoRecordEvent
+import androidx.camera.video.*
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -45,38 +21,67 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
-import com.example.hireapp.util.LoadingState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 import java.io.File
-import androidx.camera.core.Preview as CameraPreview
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.Query
 
 @Composable
-fun QuestionScreen(navController: NavController) {
+fun QuestionScreen(navController: NavController, sessionId: String, major: String, sub: String) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
     val previewHeight = screenWidth * 3 / 4
-    val sessionId = remember { "session_${System.currentTimeMillis()}" }
 
-    // 기본 질문 + AI 생성 질문
+    // Firestore 참조
+    val db = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
+
+    // 질문 리스트
     val fixedQuestions = listOf(
         "자기소개 해주세요.",
         "지원 동기는 무엇인가요?",
         "본인의 장단점을 말해주세요."
     )
-    val allQuestions = remember { fixedQuestions + List(6) { "AI 생성 질문 ${it + 1}" } }
+    var aiQuestions by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    // 제목 입력 관련 상태
+    var videoTitle by remember { mutableStateOf("") }
+    var showTitleDialog by remember { mutableStateOf(false) }
+
+    // Firestore에서 특정 세션 ID에 해당하는 질문만 가져오기
+    DisposableEffect(sessionId) {
+        val listener = db.collection("interview_questions")
+            .whereEqualTo("sessionId", sessionId)
+            .addSnapshotListener { snapshots, e ->
+                if (e != null) {
+                    Log.e("FirestoreError", "질문 로드 실패: ${e.message}")
+                    return@addSnapshotListener
+                }
+                if (snapshots != null) {
+                    aiQuestions = snapshots.documents.flatMap { document ->
+                        val questions = document.get("questions") as? List<String>
+                        questions ?: emptyList()
+                    }
+                }
+            }
+
+        onDispose {
+            listener.remove()
+        }
+    }
+
+    // 전체 질문 리스트
+    val allQuestions = remember { derivedStateOf { fixedQuestions + aiQuestions } }
 
     var currentIndex by remember { mutableStateOf(0) }
-    var phase by remember { mutableStateOf("prepare") } // "prepare" 또는 "answer"
+    var phase by remember { mutableStateOf("prepare") }
     var timeLeft by remember { mutableStateOf(30) }
 
     val videoCapture = remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
@@ -84,10 +89,15 @@ fun QuestionScreen(navController: NavController) {
     val recordedFiles = remember { mutableStateListOf<File>() }
 
     var showRetryDialog by remember { mutableStateOf(false) }
-    var showReSaveDialog by remember { mutableStateOf(false) }
     var errorOccurred by remember { mutableStateOf(false) }
 
-    var showDialog by remember { mutableStateOf(false) }
+    // Firestore 질문 로드 상태 확인
+    if (aiQuestions.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     // 질문 단계별 타이머 및 녹화
     LaunchedEffect(phase, currentIndex) {
@@ -121,47 +131,18 @@ fun QuestionScreen(navController: NavController) {
             if (phase == "prepare") {
                 phase = "answer"
             } else {
-                if (currentIndex < allQuestions.lastIndex) {
+                if (currentIndex < allQuestions.value.lastIndex) {
                     currentIndex++
                     phase = "prepare"
                 } else {
-                    showDialog = true // 마지막 질문 끝 -> 저장 여부 팝업 표시
+                    showTitleDialog = true // 제목 작성 다이얼로그 표시
                 }
             }
         }
     }
 
-    // 영상 촬영 중 오류 발생시 재촬영 또는 촬영 중단
-    if (showRetryDialog) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("촬영 오류") },
-            text = { Text("촬영 중 오류가 발생했습니다. 현재 질문부터 다시 촬영하시겠습니까?") },
-            confirmButton = {
-                Button(onClick = {
-                    showRetryDialog = false
-                    errorOccurred = false
-                    phase = "prepare" // 현재 질문을 다시 촬영
-                }) {
-                    Text("다시 촬영")
-                }
-            },
-            dismissButton = {
-                Button(onClick = {
-                    showRetryDialog = false
-                    showDialog = true // 마지막 질문 끝 -> 저장 여부 팝업 표시
-                }) {
-                    Text("촬영 중단")
-                }
-            }
-        )
-    }
-
-
     // 화면 구성
     Column(modifier = Modifier.fillMaxSize()) {
-
-        // 카메라 미리보기 (4:3 비율)
         CameraPreviewViewWithVideo(
             modifier = Modifier
                 .fillMaxWidth()
@@ -170,7 +151,6 @@ fun QuestionScreen(navController: NavController) {
             onVideoCaptureReady = { videoCapture.value = it }
         )
 
-        // 질문 + 타이머 + 버튼
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -181,11 +161,11 @@ fun QuestionScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "질문 ${currentIndex + 1} / ${allQuestions.size}",
+                "질문 ${currentIndex + 1} / ${allQuestions.value.size}",
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(12.dp))
-            Text(allQuestions[currentIndex], style = MaterialTheme.typography.bodyLarge)
+            Text(allQuestions.value[currentIndex], style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(24.dp))
             Text("남은 시간: ${timeLeft}초")
             Spacer(modifier = Modifier.height(32.dp))
@@ -195,11 +175,11 @@ fun QuestionScreen(navController: NavController) {
                         phase = "answer"
                     } else {
                         stopRecording(recording)
-                        if (currentIndex < allQuestions.lastIndex) {
+                        if (currentIndex < allQuestions.value.lastIndex) {
                             currentIndex++
                             phase = "prepare"
                         } else {
-                            showDialog = true
+                            showTitleDialog = true
                         }
                     }
                 },
@@ -210,160 +190,93 @@ fun QuestionScreen(navController: NavController) {
         }
     }
 
-    var reSaveFlag: Boolean = false
-
-    // 영상 저장 여부 팝업
-    if (showDialog) {
+    // 제목 작성 다이얼로그
+    if (showTitleDialog) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("영상 저장") },
-            text = { Text("영상을 저장하시겠습니까?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDialog = false
-
-                    // storage 에 영상 업로드 후 db에 저장
-                    uploadVideoAndSave(
-                        recordedFiles,
-                        sessionId,
-                        reSaveFlag,
-                        navController,
-                        onError = {
-                            errorOccurred = true
-                            showReSaveDialog = true
-                        }
+            title = { Text("영상 제목 작성") },
+            text = {
+                Column {
+                    Text("영상의 제목을 작성해주세요:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = videoTitle,
+                        onValueChange = { videoTitle = it },
+                        label = { Text("제목 입력") }
                     )
-                }) {
-                    Text("예")
                 }
             },
-            dismissButton = {
-                TextButton(onClick = {
-                    // 영상 삭제 처리
-                    recordedFiles.forEach { it.delete() }
-                    showDialog = false
-                    navController.navigate(Screen.Capture.route) {
-                        popUpTo(Screen.Capture.route) { inclusive = true }
-                    }
-                }) {
-                    Text("아니오")
-                }
-            }
-        )
-    }
-
-    if (showReSaveDialog) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("영상 저장 오류") },
-            text = { Text("영상 저장 중 오류가 발생했습니다. 다시 저장을 시도하시겠습니까?") },
             confirmButton = {
                 Button(onClick = {
-                    showReSaveDialog = false
-                    errorOccurred = false
-                    reSaveFlag = true
-
-                    uploadVideoAndSave(
-                        recordedFiles,
-                        sessionId,
-                        reSaveFlag,
-                        navController,
-                        onError = {
-                            errorOccurred = true
-                            showReSaveDialog = true
-                        }
-                    )
+                    uploadVideoAndSave(recordedFiles, sessionId, major, sub, videoTitle, navController)
+                    showTitleDialog = false
                 }) {
-                    Text("다시 저장")
+                    Text("저장")
                 }
             },
             dismissButton = {
                 Button(onClick = {
-                    showRetryDialog = false
-                    navController.navigate(Screen.Capture.route) {
-                        popUpTo(Screen.Capture.route) { inclusive = true }
-                    }
+                    showTitleDialog = false
                 }) {
-                    Text("저장 취소")
+                    Text("취소")
                 }
             }
         )
     }
 }
 
-/**
- * 영상을 storage에 업로드 하고 db에 저장
- *
- * @param recordedFiles 촬영된 영상 목록
- * @param sessionId 영상 촬영 시작한 밀리초 기준, 영상 폴더의 path 명으로 사용함
- *
- * @throws onError storage 업로드 실패, db 저장 실패 시 재시도 요청
- */
-fun uploadVideoAndSave(
+// 녹화 시작 함수
+fun startRecording(
+    context: Context,
+    videoCapture: VideoCapture<Recorder>?,
+    recordingRef: MutableState<Recording?>,
     recordedFiles: SnapshotStateList<File>,
     sessionId: String,
-    reSaveFlag: Boolean,
-    navController: NavController,
+    questionIndex: Int,
     onError: () -> Unit
 ) {
-    val db = FirebaseFirestore.getInstance()
-    val storage = FirebaseStorage.getInstance()
-    val auth = FirebaseAuth.getInstance()
-    val storageRef = storage.reference
-    val VIDEO_PATH = "interview-films/${sessionId}"
+    try {
+        val fileName = "${sessionId}_q${questionIndex + 1}.mp4"
+        val file = File(context.filesDir, fileName)
 
-    LoadingState.show()
+        recordedFiles.add(file)
 
-    CoroutineScope(Dispatchers.IO).launch {
-        try {
-            // 저장을 다시 시도하는 경우 기존에 저장돼있던 영상들 삭제
-            if (reSaveFlag) {
-                storageRef.child(VIDEO_PATH).listAll().addOnSuccessListener { listResult ->
-                    listResult.items.forEach { it.delete() }
+        val outputOptions = FileOutputOptions.Builder(file).build()
+
+        val recording = videoCapture?.output
+            ?.prepareRecording(context, outputOptions)
+            ?.start(ContextCompat.getMainExecutor(context)) { event ->
+                if (event is VideoRecordEvent.Finalize) {
+                    if (event.hasError()) {
+                        Log.e("VideoCapture", "녹화 실패: ${event.error}")
+                        onError()
+                    } else {
+                        Log.d("VideoCapture", "녹화 완료: ${file.absolutePath}")
+                    }
                 }
             }
 
-            val videoUrls = mutableListOf<String>()
-
-            // storage에 업로드
-            recordedFiles.forEach { file ->
-                val fileUri = Uri.fromFile(file)
-                val videoRef = storageRef.child("${VIDEO_PATH}/${file.name}")
-
-                videoRef.putFile(fileUri).await()
-                val downloadUrl = videoRef.downloadUrl.await()
-                videoUrls.add(downloadUrl.toString())
-            }
-
-            // db에 저장
-            val videoData = hashMapOf(
-                "videoPath" to VIDEO_PATH,
-                "videos" to videoUrls.map { mapOf("fileUrl" to it) }
-            )
-
-            db.collection("videos")
-                .document(sessionId)
-                .set(videoData)
-                .await()
-
-            // 저장 완료되면 기존 영상들 삭제
-            withContext(Dispatchers.Main) {
-                recordedFiles.forEach { it.delete() }
-                navController.navigate(Screen.Capture.route) {
-                    popUpTo(Screen.Capture.route) { inclusive = true }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("UploadError", "업로드 실패: ${e.message}")
-            withContext(Dispatchers.Main) {
-                onError()
-            }
-        } finally {
-            LoadingState.hide()
+        if (recording == null) {
+            Log.e("VideoCapture", "녹화 시작 실패: videoCapture == null")
+            onError()
+        } else {
+            Log.d("VideoCapture", "녹화 시작됨: $fileName")
         }
+
+        recordingRef.value = recording
+    } catch (e: Exception) {
+        Log.e("Recording", "녹화 중 오류 발생: ${e.message}")
+        onError()
     }
 }
 
+// 녹화 중지 함수
+fun stopRecording(recordingRef: MutableState<Recording?>) {
+    recordingRef.value?.stop()
+    recordingRef.value = null
+}
+
+// 카메라 미리보기 설정
 @Composable
 fun CameraPreviewViewWithVideo(
     modifier: Modifier = Modifier,
@@ -373,7 +286,6 @@ fun CameraPreviewViewWithVideo(
     val context = LocalContext.current
     val previewView = remember { PreviewView(context) }
 
-    // 카메라 뷰 연결 (CameraX)
     AndroidView(
         factory = { previewView },
         modifier = modifier
@@ -382,7 +294,7 @@ fun CameraPreviewViewWithVideo(
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
 
-            val preview = CameraPreview.Builder().build().also {
+            val preview = androidx.camera.core.Preview.Builder().build().also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
 
@@ -410,56 +322,76 @@ fun CameraPreviewViewWithVideo(
     }
 }
 
-// 녹화 시작
-fun startRecording(
-    context: Context,
-    videoCapture: VideoCapture<Recorder>?,
-    recordingRef: MutableState<Recording?>,
-    recordedFiles: SnapshotStateList<File>,
+// 영상 업로드 및 Firestore 저장
+fun uploadVideoAndSave(
+    recordedFiles: List<File>,
     sessionId: String,
-    questionIndex: Int,
-    onError: () -> Unit
+    major: String,
+    sub: String,
+    videoTitle: String, // 제목 추가
+    navController: NavController
 ) {
-    try {
-        val fileName = "${sessionId}_q${questionIndex + 1}.mp4"
-        val file = File(context.filesDir, fileName)
+    val db = FirebaseFirestore.getInstance()
+    val storage = FirebaseStorage.getInstance()
+    val auth = FirebaseAuth.getInstance()
+    val storageRef = storage.reference
+    val VIDEO_PATH = "videos/$sessionId"
 
-        Log.d("VideoCapture", " 녹화 시작 준비: $fileName")
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val videoUrls = mutableListOf<String>()
 
-        recordedFiles.add(file)
+            // 파일을 Firebase Storage에 업로드
+            recordedFiles.forEach { file ->
+                val fileUri = Uri.fromFile(file)
+                val videoRef = storageRef.child("$VIDEO_PATH/${file.name}")
 
-        val outputOptions = FileOutputOptions.Builder(file).build()
-
-        val recording = videoCapture?.output
-            ?.prepareRecording(context, outputOptions)
-            ?.start(ContextCompat.getMainExecutor(context)) { event ->
-                if (event is VideoRecordEvent.Finalize) {
-                    if (event.hasError()) {
-                        Log.e("VideoCapture", " 녹화 실패: ${event.error}")
-                        onError()
-                    } else {
-                        Log.d("VideoCapture", " 녹화 완료: ${file.absolutePath}")
-                    }
-                }
+                videoRef.putFile(fileUri).await()
+                val downloadUrl = videoRef.downloadUrl.await()
+                videoUrls.add(downloadUrl.toString())
             }
 
-        if (recording == null) {
-            Log.e("VideoCapture", " 녹화 시작 실패: videoCapture == null")
-            onError()
-        } else {
-            Log.d("VideoCapture", " 녹화 시작됨: $fileName")
+            // Firestore에서 가장 최근 생성된 interview_questions 문서 가져오기
+            val latestQuestionRef = db.collection("interview_questions")
+                .orderBy("uploadTime", Query.Direction.DESCENDING)
+                .limit(1)
+                .get()
+                .await()
+                .documents
+                .firstOrNull()
+
+            val questionPath = latestQuestionRef?.reference?.path ?: ""
+
+            // Firestore에 저장할 데이터 생성
+            val videoData = hashMapOf(
+                "category" to hashMapOf(
+                    "major" to major, // selectrolescreen에서 전달된 category
+                    "sub" to sub      // selectrolescreen에서 전달된 job
+                ),
+                "question" to db.document(questionPath), // 가장 최근 문서 참조
+                "title" to videoTitle, // 영상 제목 저장
+                "uploadTime" to FieldValue.serverTimestamp(),
+                "user" to db.document("/users/${auth.currentUser?.uid}"),
+                "videos" to videoUrls.map { mapOf("fileUrl" to it) },
+                "feedback" to " ",
+                "public" to "True"
+            )
+
+            // Firestore에 데이터 저장
+            db.collection("interview")
+                .document(sessionId)
+                .set(videoData)
+                .await()
+
+            withContext(Dispatchers.Main) {
+                // 로컬 파일 삭제 및 마이페이지로 이동
+                recordedFiles.forEach { it.delete() }
+                navController.navigate(Screen.MyPageAppl.route) {
+                    popUpTo(Screen.MyPageAppl.route) { inclusive = true }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("UploadError", "업로드 실패: ${e.message}")
         }
-
-        recordingRef.value = recording
-    } catch (e: Exception) {
-        Log.e("Recording", "녹화 중 오류 발생: ${e.message}")
-        onError()
     }
-}
-
-// 녹화 중지
-fun stopRecording(recordingRef: MutableState<Recording?>) {
-    Log.d("VideoCapture", " 녹화 중지 요청됨")
-    recordingRef.value?.stop()
-    recordingRef.value = null
 }

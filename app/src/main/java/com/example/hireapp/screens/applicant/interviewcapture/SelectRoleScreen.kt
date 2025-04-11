@@ -15,7 +15,7 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 
 @Composable
-fun SelectRoleScreen(onNext: () -> Unit) {
+fun SelectRoleScreen(onNext: (String, String) -> Unit) {
     val categories = listOf("기업", "공무원", "교육", "대학")
     val jobMap = mapOf(
         "기업" to listOf("IT", "디자인", "경영/사무", "생산/기술"),
@@ -77,6 +77,7 @@ fun SelectRoleScreen(onNext: () -> Unit) {
         Button(
             onClick = {
                 val db = Firebase.firestore
+                val sessionId = "session_${System.currentTimeMillis()}" // 고유 세션 ID 생성
                 val data = hashMapOf(
                     "category" to selectedCategory,
                     "job" to selectedSubcategory,
@@ -87,14 +88,18 @@ fun SelectRoleScreen(onNext: () -> Unit) {
                     "achievements" to achievements,
                     "certificates" to certificates,
                     "projects" to projects,
-                    "roles" to roles
+                    "roles" to roles,
+                    "sessionId" to sessionId // 세션 ID 추가
                 )
 
                 db.collection("select_role")
                     .add(data)
-                    .addOnSuccessListener { onNext() }
+                    .addOnSuccessListener {
+                        onNext(selectedCategory, selectedSubcategory) // 선택된 major와 sub 전달
+                    }
                     .addOnFailureListener { e -> Log.w("Firebase", "Error adding document", e) }
             },
+
             enabled = selectedCategory.isNotEmpty() && selectedSubcategory.isNotEmpty(),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -150,5 +155,5 @@ fun DropdownMenuBox(
 @Preview(showBackground = true)
 @Composable
 fun SelectRoleScreenPreview() {
-    SelectRoleScreen(onNext = {})
+    SelectRoleScreen(onNext = { _, _ -> })
 }

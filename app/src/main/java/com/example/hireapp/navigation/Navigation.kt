@@ -6,18 +6,14 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.hireapp.screens.login.LoginScreen
-import com.example.hireapp.screens.login.SignUpScreen
-import com.example.hireapp.screens.login.SignUpCommonScreen
-import com.example.hireapp.screens.login.SignUpInterviewerScreen
-import com.example.hireapp.screens.applicant.HomeApplScreen
-import com.example.hireapp.screens.applicant.MyPageApplScreen
-import com.example.hireapp.screens.applicant.interviewcapture.CaptureScreen
-import com.example.hireapp.screens.interviewer.HomeIntrScreen
-import com.example.hireapp.screens.interviewer.MyPageIntrScreen
-import com.example.hireapp.screens.VideoDetailScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.example.hireapp.screens.login.*
+import com.example.hireapp.screens.applicant.*
+import com.example.hireapp.screens.applicant.interviewcapture.CaptureScreen
+import com.example.hireapp.screens.applicant.interviewcapture.QuestionScreen
+import com.example.hireapp.screens.interviewer.*
+import com.example.hireapp.screens.VideoDetailScreen
 
 @Composable
 fun AppNavHost(navController: NavHostController = rememberNavController(), userType: String? = null) {
@@ -44,6 +40,22 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
         composable(Screen.MyPageAppl.route) { MyPageApplScreen(navController) }
         composable(Screen.MyPageIntr.route) { MyPageIntrScreen(navController) }
         composable(Screen.Capture.route) { CaptureScreen(navController) }
+
+        // 질문 화면 추가 (세션 ID, major, sub 필요)
+        composable(
+            route = "${Screen.QuestionScreen.route}/{sessionId}/{major}/{sub}",
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.StringType },
+                navArgument("major") { type = NavType.StringType },
+                navArgument("sub") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@composable
+            val major = backStackEntry.arguments?.getString("major") ?: return@composable
+            val sub = backStackEntry.arguments?.getString("sub") ?: return@composable
+
+            QuestionScreen(navController = navController, sessionId = sessionId, major = major, sub = sub)
+        }
 
         // 영상 상세 보기 (댓글 포함)
         composable(
