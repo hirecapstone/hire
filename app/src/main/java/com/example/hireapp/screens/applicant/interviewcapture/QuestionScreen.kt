@@ -382,8 +382,8 @@ fun uploadVideoAndSave(
                 "uploadTime" to FieldValue.serverTimestamp(),
                 "user" to db.document("/users/${auth.currentUser?.uid}"),
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
-                "feedback" to " ",
-                "public" to "True"
+                "feedback" to "", // 빈 문자열로 수정
+                "public" to true // 불리언 값으로 수정
             )
 
             // Firestore에 데이터 저장
