@@ -15,10 +15,9 @@ import androidx.compose.runtime.*
 @Composable
 fun CaptureScreen(navController: NavController) {
     val currentStep = remember { mutableStateOf(1) }
-    val sessionId = remember { "session_${System.currentTimeMillis()}" } // 세션 ID 생성
-
-    var major by remember { mutableStateOf("") } // SelectRoleScreen에서 전달받을 major
-    var sub by remember { mutableStateOf("") }   // SelectRoleScreen에서 전달받을 sub
+    var sessionId by remember { mutableStateOf("") } // 세션 ID 상태를 var로 선언
+    var major by remember { mutableStateOf("") }    // SelectRoleScreen에서 전달받을 major
+    var sub by remember { mutableStateOf("") }      // SelectRoleScreen에서 전달받을 sub
 
     Scaffold(
         bottomBar = {
@@ -29,14 +28,15 @@ fun CaptureScreen(navController: NavController) {
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (currentStep.value) {
-                1 -> SelectRoleScreen(onNext = { selectedMajor: String, selectedSub: String ->
+                1 -> SelectRoleScreen(onNext = { selectedMajor: String, selectedSub: String, generatedSessionId: String ->
                     major = selectedMajor
                     sub = selectedSub
+                    sessionId = generatedSessionId // SelectRoleScreen에서 전달된 sessionId 저장
                     currentStep.value = 2
                 })
                 2 -> WarningScreen(onNext = { currentStep.value = 3 })
                 3 -> CameraSetupScreen(onNext = { currentStep.value = 4 })
-                4 -> QuestionScreen(navController = navController, sessionId = sessionId, major = major, sub = sub) // major와 sub 전달
+                4 -> QuestionScreen(navController = navController, sessionId = sessionId, major = major, sub = sub) // major, sub, sessionId 전달
             }
         }
     }

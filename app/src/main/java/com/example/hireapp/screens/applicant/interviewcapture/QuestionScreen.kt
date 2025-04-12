@@ -33,6 +33,8 @@ import com.google.firebase.firestore.Query
 
 @Composable
 fun QuestionScreen(navController: NavController, sessionId: String, major: String, sub: String) {
+    Log.d("SessionIdCheck", "전달된 sessionId: $sessionId")
+    Log.d("MajorSubCheck", "전달된 Major: $major, Sub: $sub")
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
@@ -65,10 +67,17 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                     return@addSnapshotListener
                 }
                 if (snapshots != null) {
-                    aiQuestions = snapshots.documents.flatMap { document ->
-                        val questions = document.get("questions") as? List<String>
-                        questions ?: emptyList()
+                    if (!snapshots.isEmpty) {
+                        aiQuestions = snapshots.documents.flatMap { document ->
+                            val questions = document.get("questions") as? List<String>
+                            questions ?: emptyList()
+                        }
+                        Log.d("FirestoreSuccess", "질문 로드 성공: $aiQuestions")
+                    } else {
+                        Log.w("FirestoreWarning", "해당 세션 ID에 대한 질문이 없습니다.")
                     }
+                } else {
+                    Log.e("FirestoreError", "스냅샷이 null입니다.")
                 }
             }
 
