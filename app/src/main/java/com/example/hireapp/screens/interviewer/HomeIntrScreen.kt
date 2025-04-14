@@ -24,7 +24,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,8 +39,9 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.navigation.Screen
 import com.example.hireapp.util.LoadingState
+import com.example.hireapp.util.Paging
 import com.google.firebase.Firebase
-import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,47 +52,75 @@ import kotlinx.coroutines.withContext
 @Composable
 fun HomeIntrScreen(navController: NavController) {
 
+    // 페이징용 변수
+    var paging: Paging = Paging()
+    var videos by remember { mutableStateOf<List<List<String>>>(emptyList()) }
+
     /**
      * db의 면접 영상들을 필터 조건에 맞게 불러오는 메서드
      *
-     * @param filterItems 필터 조건
-     * @param size 불러올 영상 개수
+     * @param majorItem 대분류 필터 아이템(한 개)
+     * @param subItems 소분류 필터 아이템(하나 이상)
+     *
+     * @return 필터를 거친 문서들의 영상 리스트 목록
      */
-    // TODO: 영상 저장 형식 확정한 후 재작업 필요
-    fun loadVideosWithFilter(filterItems: List<String>, size: Int) {
+    fun loadVideos(
+        majorItem: String? = null,
+        subItems: List<String>? = null,
+        size: Long = 10
+    ): List<List<String>> {
+        val db = Firebase.firestore
+        val interviewRef = db.collection("interview")
+
         LoadingState.show()
 
-        val db = Firebase.firestore
-        val videoRef = db.collection("vidoes")
-
-        // 면접 게시물 별 영상들의 url을 저장함.
-        // TODO: MediaPlayer 등을 이용하여 스트리밍 형식으로 url의 영상 재생하기
+        // 면접 게시물 별 영상들의 다운로드 url을 저장함.
         val filteredVideoList = mutableListOf<List<String>>()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val docs: QuerySnapshot
+                // 업로드 시간 기준으로 내림차순 정렬, size 단위로 페이징해서 정보를 불러옴
+                var query = interviewRef
+                    .orderBy("uploadTime", Query.Direction.DESCENDING)
+                    .limit(size)
 
-                if (filterItems.isNotEmpty()) {
-                    docs = videoRef.whereIn("category", filterItems).get().await()
-                } else {
-                    docs = videoRef.get().await()
+                // 대분류 조건이 있는 경우 조건 추가
+                if (!majorItem.isNullOrBlank()) {
+                    query = query.whereEqualTo("category.major", majorItem)
                 }
 
-                docs.forEach { doc ->
-                    val fieldList = doc.get("videos") as? List<*>
-                    val videoUrls = fieldList?.filterIsInstance<String>() ?: emptyList()
-                    filteredVideoList.add(videoUrls)
+                // 소분류 조건이 있는 경우 조건 추가
+                if (!subItems.isNullOrEmpty()) {
+                    query = query.whereIn("category.sub", subItems)
+                }
+
+                // 이전 페이지가 존재하는 경우 조건 추가
+                if (paging.lastDocument != null) {
+                    query = query.startAfter(paging.lastDocument)
+                }
+
+                val docs = query.get().await()
+
+                withContext(Dispatchers.Main) {
+                    docs.forEach { doc ->
+                        try {
+                            val fieldList = doc.get("videos") as? List<*>
+                            val videoUrls = fieldList?.filterIsInstance<String>() ?: emptyList()
+                            filteredVideoList.add(videoUrls)
+                        } catch (e: Exception) {
+                            Log.d("Load_page_video", "비디오 로드 중 오류 발생: ${doc.id}")
+                        }
+                    }
+                    paging = Paging(lastDocument = docs.lastOrNull())
+                    LoadingState.hide()
                 }
             } catch (e: Exception) {
-                // TODO: 한 페이지 단위가 아닌, 게시물 당 예외 처리하도록 범위 변경 (지금은 페이지 단위)
-                Log.d("Load_video", "비디오 로드 중 오류가 발생했습니다.")
-            }
-
-            withContext(Dispatchers.Main) {
-                LoadingState.hide()
+                // TODO: 새로고침 구현?
+                Log.d("Load_page", "페이지 로드 중 오류가 발생했습니다: ${e.message}")
             }
         }
+
+        return filteredVideoList.toList()
     }
 
     val videoList = remember {
@@ -103,6 +136,11 @@ fun HomeIntrScreen(navController: NavController) {
             VideoItem("9", "학부 입시 면접", "이름8"),
             VideoItem("10", "편입 면접", "이름9")
         )
+    }
+
+    LaunchedEffect(Unit) {
+        videos = loadVideos()
+        Log.d("loadVideos", videos.toString())
     }
 
     Scaffold(
