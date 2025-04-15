@@ -102,8 +102,15 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
     // Firestore 질문 로드 상태 확인
     if (aiQuestions.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("질문을 생성 중입니다.", style = MaterialTheme.typography.bodyMedium)
+            }
         }
         return
     }
