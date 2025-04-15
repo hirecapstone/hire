@@ -1,8 +1,10 @@
 package com.example.hireapp.screens.applicant.interviewcapture
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.*
@@ -30,6 +32,13 @@ import java.io.File
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
+import android.Manifest
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.core.app.ActivityCompat
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
+
 
 @Composable
 fun QuestionScreen(navController: NavController, sessionId: String, major: String, sub: String) {
@@ -108,11 +117,38 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
         return
     }
 
+    // 권한 요청 상태 확인
+    var hasPermission by remember { mutableStateOf(false) }
+
+    // 권한 요청 콜백 함수
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        hasPermission = permissions[Manifest.permission.CAMERA] == true &&
+                permissions[Manifest.permission.RECORD_AUDIO] == true
+    }
+
+    // 권한 요청
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.CAMERA,
+                    Manifest.permission.RECORD_AUDIO
+                )
+            )
+        } else {
+            hasPermission = true
+        }
+    }
+
     // 질문 단계별 타이머 및 녹화
     LaunchedEffect(phase, currentIndex) {
         timeLeft = if (phase == "prepare") 30 else 60
 
-        if (phase == "answer") {
+        if (phase == "answer" && hasPermission) {
             startRecording(
                 context,
                 videoCapture.value,
@@ -123,7 +159,8 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 onError = {
                     errorOccurred = true
                     showRetryDialog = true
-                }
+                },
+                permissionLauncher
             )
         }
 
@@ -144,7 +181,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                     currentIndex++
                     phase = "prepare"
                 } else {
-                    showTitleDialog = true // 제목 작성 다이얼로그 표시
+                    showTitleDialog = true
                 }
             }
         }
@@ -218,6 +255,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             confirmButton = {
                 Button(onClick = {
                     uploadVideoAndSave(recordedFiles, sessionId, major, sub, videoTitle, navController)
+                    navController.navigate(Screen.HomeAppl.route)
                     showTitleDialog = false
                 }) {
                     Text("저장")
@@ -225,13 +263,29 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             },
             dismissButton = {
                 Button(onClick = {
+                    navController.navigate(Screen.HomeAppl.route)
                     showTitleDialog = false
+
                 }) {
                     Text("취소")
                 }
             }
         )
     }
+}
+
+// 권한 요청을 처리하는 함수
+private fun requestPermissions(
+    context: Context,
+    permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>
+) {
+    // 권한 요청: 오디오 및 카메라 권한 요청
+    permissionLauncher.launch(
+        arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        )
+    )
 }
 
 // 녹화 시작 함수
@@ -242,42 +296,78 @@ fun startRecording(
     recordedFiles: SnapshotStateList<File>,
     sessionId: String,
     questionIndex: Int,
-    onError: () -> Unit
+    onError: () -> Unit,
+    permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>
 ) {
-    try {
-        val fileName = "${sessionId}_q${questionIndex + 1}.mp4"
-        val file = File(context.filesDir, fileName)
 
-        recordedFiles.add(file)
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+        try {
+            val fileName = "${sessionId}_q${questionIndex + 1}.mp4"
+            val file = File(context.filesDir, fileName)
 
-        val outputOptions = FileOutputOptions.Builder(file).build()
+            recordedFiles.add(file)
 
-        val recording = videoCapture?.output
-            ?.prepareRecording(context, outputOptions)
-            ?.start(ContextCompat.getMainExecutor(context)) { event ->
-                if (event is VideoRecordEvent.Finalize) {
-                    if (event.hasError()) {
-                        Log.e("VideoCapture", "녹화 실패: ${event.error}")
-                        onError()
-                    } else {
-                        Log.d("VideoCapture", "녹화 완료: ${file.absolutePath}")
+            val outputOptions = FileOutputOptions.Builder(file).build()
+
+            val recording = videoCapture?.output
+                ?.prepareRecording(context, outputOptions)
+                ?.apply {
+                    withAudioEnabled()  // 오디오 캡처를 활성화
+                }
+                ?.start(ContextCompat.getMainExecutor(context)) { event ->
+                    if (event is VideoRecordEvent.Finalize) {
+                        if (event.hasError()) {
+                            Log.e("VideoCapture", "녹화 실패: ${event.error}")
+                            onError()
+                        } else {
+                            Log.d("VideoCapture", "녹화 완료: ${file.absolutePath}")
+                        }
                     }
                 }
+
+            if (recording == null) {
+                Log.e("VideoCapture", "녹화 시작 실패: videoCapture == null")
+                onError()
+            } else {
+                Log.d("VideoCapture", "녹화 시작됨: $fileName")
             }
 
-        if (recording == null) {
-            Log.e("VideoCapture", "녹화 시작 실패: videoCapture == null")
+            recordingRef.value = recording
+        } catch (e: Exception) {
+            Log.e("Recording", "녹화 중 오류 발생: ${e.message}")
             onError()
-        } else {
-            Log.d("VideoCapture", "녹화 시작됨: $fileName")
         }
-
-        recordingRef.value = recording
-    } catch (e: Exception) {
-        Log.e("Recording", "녹화 중 오류 발생: ${e.message}")
-        onError()
+    } else {
+        // 오디오 권한이 없으면 권한을 요청
+        requestPermissions(context, permissionLauncher)
     }
 }
+
+// 권한 요청 콜백 함수 설정
+@Composable
+fun PermissionRequester(onPermissionGranted: () -> Unit) {
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.CAMERA] == true && permissions[Manifest.permission.RECORD_AUDIO] == true) {
+            Log.d("Permissions", "All required permissions granted")
+            onPermissionGranted()  // 권한이 허용되면 이후 로직 실행
+        } else {
+            Log.d("Permissions", "Required permissions denied")
+        }
+    }
+
+    // 권한 요청
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.RECORD_AUDIO
+            )
+        )
+    }
+}
+
 
 // 녹화 중지 함수
 fun stopRecording(recordingRef: MutableState<Recording?>) {
@@ -285,7 +375,6 @@ fun stopRecording(recordingRef: MutableState<Recording?>) {
     recordingRef.value = null
 }
 
-// 카메라 미리보기 설정
 @Composable
 fun CameraPreviewViewWithVideo(
     modifier: Modifier = Modifier,
@@ -307,11 +396,15 @@ fun CameraPreviewViewWithVideo(
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
 
+            // Recorder 설정
             val recorder = Recorder.Builder()
-                .setQualitySelector(QualitySelector.from(Quality.HD))
+                .setQualitySelector(QualitySelector.from(Quality.HD)) // 영상 품질 설정
                 .build()
+
+            // VideoCapture 객체 생성 및 오디오 캡처 활성화
             val videoCapture = VideoCapture.withOutput(recorder)
 
+            // 오디오 캡처 활성화
             onVideoCaptureReady(videoCapture)
 
             val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
@@ -331,7 +424,6 @@ fun CameraPreviewViewWithVideo(
     }
 }
 
-// 영상 업로드 및 Firestore 저장
 fun uploadVideoAndSave(
     recordedFiles: List<File>,
     sessionId: String,
@@ -344,63 +436,97 @@ fun uploadVideoAndSave(
     val storage = FirebaseStorage.getInstance()
     val auth = FirebaseAuth.getInstance()
     val storageRef = storage.reference
-    val VIDEO_PATH = "videos/$sessionId"
+    val VIDEO_PATH = "videos/${sessionId}"
 
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val videoUrls = mutableListOf<String>()
 
-            // 파일을 Firebase Storage에 업로드
+            // 각 파일을 Firebase Storage에 업로드하고 URL을 저장
             recordedFiles.forEach { file ->
-                val fileUri = Uri.fromFile(file)
-                val videoRef = storageRef.child("$VIDEO_PATH/${file.name}")
+                try {
+                    val fileUri = Uri.fromFile(file)
+                    val videoRef = storageRef.child("${VIDEO_PATH}/${file.name}")
+                    Log.d("UploadFile", "파일 업로드 시작: ${file.name}")
+                    // 파일 업로드
+                    videoRef.putFile(fileUri).await()
+                    Log.d("UploadFile", "파일 업로드 성공: ${file.name}")
+                    try {
+                        val downloadUrl = videoRef.downloadUrl.await()
+                        Log.d("DownloadUrl", "다운로드 URL 가져오기 성공: ${downloadUrl.toString()}")
+                        videoUrls.add(downloadUrl.toString()) // URL 추가
+                    } catch (e: Exception) {
+                        Log.e("DownloadError", "다운로드 URL 가져오기 실패: ${e.message}")
+                    }
 
-                videoRef.putFile(fileUri).await()
-                val downloadUrl = videoRef.downloadUrl.await()
-                videoUrls.add(downloadUrl.toString())
+                } catch (e: Exception) {
+                    Log.e("UploadError", "파일 업로드 실패: ${e.message}, 파일: ${file.name}")
+                }
             }
 
-            // Firestore에서 가장 최근 생성된 interview_questions 문서 가져오기
+            val currentUser = auth.currentUser
+            val userName = currentUser?.uid?.let { userId ->
+                // uid로 Firestore에서 사용자 이름을 가져옵니다.
+                db.collection("users").document(userId)
+                    .get()
+                    .await()
+                    .getString("name") ?: "Unknown User" // "name" 필드를 가져옵니다.
+            } ?: "Unknown User"
+
+            // Firestore에서 sessionId와 일치하는 interview_questions 문서 가져오기
             val latestQuestionRef = db.collection("interview_questions")
-                .orderBy("uploadTime", Query.Direction.DESCENDING)
-                .limit(1)
+                .document(sessionId) // sessionId로 문서를 찾음
                 .get()
                 .await()
-                .documents
-                .firstOrNull()
 
-            val questionPath = latestQuestionRef?.reference?.path ?: ""
+            val questions = latestQuestionRef.get("questions") as? List<String> ?: listOf()
 
             // Firestore에 저장할 데이터 생성
             val videoData = hashMapOf(
                 "category" to hashMapOf(
-                    "major" to major, // selectrolescreen에서 전달된 category
-                    "sub" to sub      // selectrolescreen에서 전달된 job
+                    "major" to major,
+                    "sub" to sub
                 ),
-                "question" to db.document(questionPath), // 가장 최근 문서 참조
-                "title" to videoTitle, // 영상 제목 저장
+                "question" to questions,
+                "title" to videoTitle,
                 "uploadTime" to FieldValue.serverTimestamp(),
-                "user" to db.document("/users/${auth.currentUser?.uid}"),
+                "user" to userName,
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
-                "feedback" to "", // 빈 문자열로 수정
-                "public" to true // 불리언 값으로 수정
+                "public" to true
             )
 
-            // Firestore에 데이터 저장
-            db.collection("interview")
-                .document(sessionId)
-                .set(videoData)
-                .await()
 
-            withContext(Dispatchers.Main) {
-                // 로컬 파일 삭제 및 마이페이지로 이동
-                recordedFiles.forEach { it.delete() }
-                navController.navigate(Screen.MyPageAppl.route) {
-                    popUpTo(Screen.MyPageAppl.route) { inclusive = true }
+
+
+            val dbpath = "interview/${sessionId.replace("/", "")}"
+
+            // Firestore에 데이터 저장
+            Log.d("Upload", "Firestore에 데이터 저장 시작: $dbpath")
+            db.collection("interview")
+                .document(sessionId) // sessionId 그대로 사용
+                .set(videoData)
+                .addOnSuccessListener {
+                    Log.d("Upload", "Firestore에 데이터 저장 성공: $dbpath")
                 }
-            }
+                .addOnFailureListener { e ->
+                    Log.e("Upload", "Firestore에 데이터 저장 실패: ${e.message}, 경로: $dbpath")
+                }
+
+
+
+
+
+//            withContext(Dispatchers.Main) {
+//                // 로컬 파일 삭제 및 마이페이지로 이동
+//                recordedFiles.forEach { it.delete() }
+//                navController.navigate(Screen.MyPageAppl.route) {
+//                    popUpTo(Screen.MyPageAppl.route) { inclusive = true }
+//                }
+//            }
         } catch (e: Exception) {
-            Log.e("UploadError", "업로드 실패: ${e.message}")
+            Log.e("UploadError", "업로드 실패: ${e.message} 문서이름은 ${sessionId}",)
         }
     }
 }
+
+
