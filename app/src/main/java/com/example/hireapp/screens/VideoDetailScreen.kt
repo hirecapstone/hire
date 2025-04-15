@@ -60,12 +60,20 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
         try {
             val doc = db.collection("interview").document(videoId).get().await()
             val title = doc.getString("title") ?: "제목 없음"
-            val userRef = doc.get("user")
-            if (userRef is DocumentReference) {
-                val userSnapshot = userRef.get().await()
-                val userName = userSnapshot.getString("name") ?: "익명"
-                video = VideoItem(id = videoId, title = title, userName = userName)
+            val userField = doc.get("user")
+            val userName = when (userField) {
+                is DocumentReference -> {
+                    try {
+                        val snapshot = userField.get().await()
+                        snapshot.getString("name") ?: "이름 없음"
+                    } catch (e: Exception) {
+                        "이름 조회 실패"
+                    }
+                }
+                is String -> userField
+                else -> "알 수 없음"
             }
+            video = VideoItem(id = videoId, title = title, userName = userName)
         } catch (e: Exception) {
             Toast.makeText(context, "영상 정보를 불러오지 못했습니다.", Toast.LENGTH_SHORT).show()
         }
