@@ -93,7 +93,8 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) { // 세 개의 �
                 )
 
                 db.collection("select_role")
-                    .add(data)
+                    .document(sessionId)
+                    .set(data)
                     .addOnSuccessListener {
                         onNext(selectedCategory, selectedSubcategory, sessionId) // 세션 ID 전달
                     }

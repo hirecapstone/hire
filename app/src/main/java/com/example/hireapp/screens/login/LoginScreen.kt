@@ -25,7 +25,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
+    var userName by remember { mutableStateOf("") }
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
@@ -48,6 +48,7 @@ fun LoginScreen(navController: NavController) {
                     db.collection("users").document(user.uid).get()
                         .addOnSuccessListener { doc ->
                             val role = doc.getString("role") ?: ""
+                            userName=doc.getString("name") ?:"Unknown"
                             // Log.d("Role", role)
 
                             when (role) {
