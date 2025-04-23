@@ -465,13 +465,7 @@ fun uploadVideoAndSave(
             }
 
             val currentUser = auth.currentUser
-            val userName = currentUser?.uid?.let { userId ->
-                // uid로 Firestore에서 사용자 이름을 가져옵니다.
-                db.collection("users").document(userId)
-                    .get()
-                    .await()
-                    .getString("name") ?: "Unknown User" // "name" 필드를 가져옵니다.
-            } ?: "Unknown User"
+            val userName = currentUser?.uid ?: "Unknown User"
 
             // Firestore에서 sessionId와 일치하는 interview_questions 문서 가져오기
             val latestQuestionRef = db.collection("interview_questions")
