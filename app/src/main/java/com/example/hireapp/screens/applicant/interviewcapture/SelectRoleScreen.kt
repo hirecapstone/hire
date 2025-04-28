@@ -27,7 +27,6 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) { // 세 개의 �
     var selectedCategory by remember { mutableStateOf("") }
     var selectedSubcategory by remember { mutableStateOf("") }
 
-    var name by remember { mutableStateOf("") }
     var contact by remember { mutableStateOf("") }
     var major by remember { mutableStateOf("") }
     var career by remember { mutableStateOf("") }
@@ -55,7 +54,6 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) { // 세 개의 �
         }
 
         Text("1. 개인정보", style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("이름") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = contact, onValueChange = { contact = it }, label = { Text("연락처(이메일, 전화번호)") }, modifier = Modifier.fillMaxWidth())
 
         Text("2. 학력", style = MaterialTheme.typography.titleMedium)
@@ -81,7 +79,6 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) { // 세 개의 �
                 val data = hashMapOf(
                     "category" to selectedCategory,
                     "job" to selectedSubcategory,
-                    "name" to name,
                     "contact" to contact,
                     "major" to major,
                     "career" to career,
