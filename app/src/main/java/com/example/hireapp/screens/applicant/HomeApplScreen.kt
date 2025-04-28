@@ -1,5 +1,6 @@
 package com.example.hireapp.screens.applicant
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,22 +23,61 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.models.VideoItem
 import com.example.hireapp.navigation.Screen
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun HomeApplScreen(navController: NavController) {
-    val videoList = remember {
-        listOf( // 더미데이터
-            VideoItem("1", "IT 직무 면접", "이름0"),
-            VideoItem("2", "디자인 직무 면접", "이름1"),
-            VideoItem("3", "경영/사무 직무 면접", "이름2"),
-            VideoItem("4", "생산/기술 직무 면접", "이름3"),
-            VideoItem("5", "9급 공무원 면접", "이름4"),
-            VideoItem("6", "소방 공무원 면접", "이름5"),
-            VideoItem("7", "초등교사 면접", "이름6"),
-            VideoItem("8", "강사 면접", "이름7"),
-            VideoItem("9", "학부 입시 면접", "이름8"),
-            VideoItem("10", "편입 면접", "이름9")
-        )
+    var videoList by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
+
+    // Firestore에서 모든 interview 문서 불러오기
+    LaunchedEffect(Unit) {
+        val db = Firebase.firestore
+        val resultList = mutableListOf<VideoItem>()
+
+        try {
+            val interviewDocs = db.collection("interview")
+                .whereEqualTo("public", true)
+                .get()
+                .await()
+
+            Log.d("FirestoreDebug", "총 interview 문서 수: ${interviewDocs.size()}")
+
+            interviewDocs.forEach { doc ->
+                Log.d("FirestoreDebug", "문서 ${doc.id} 필드: ${doc.data}")
+
+                val title = doc.getString("title") ?: run {
+                    Log.w("FirestoreDebug", "문서 ${doc.id} → title 없음")
+                    return@forEach
+                }
+
+                val userField = doc.get("user")
+                val userName = when (userField) {
+                    is DocumentReference -> {
+                        try {
+                            val snapshot = userField.get().await()
+                            snapshot.getString("name") ?: "이름 없음"
+                        } catch (e: Exception) {
+                            Log.e("FirestoreDebug", "문서 ${doc.id} → user 문서 불러오기 실패: ${e.message}")
+                            "이름 조회 실패"
+                        }
+                    }
+                    is String -> userField
+                    else -> "알 수 없음"
+                }
+
+                Log.d("FirestoreDebug", "문서 ${doc.id} → 사용자 이름: $userName")
+                resultList.add(VideoItem(id = doc.id, title = title, userName = userName))
+            }
+
+            videoList = resultList
+            Log.d("FirestoreDebug", "최종 videoList 크기: ${videoList.size}")
+
+        } catch (e: Exception) {
+            Log.e("FirestoreDebug", "인터뷰 문서 로딩 실패: ${e.message}")
+        }
     }
 
     Scaffold(
@@ -48,68 +88,74 @@ fun HomeApplScreen(navController: NavController) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.White)
-                    .padding(12.dp)
-            ) {
-                items(videoList) { video ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp)
-                            .background(Color(0xFFF5F5F5), RoundedCornerShape(12.dp))
-                            .padding(12.dp)
-                    ) {
-                        // 유저 이름
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(Color.Gray, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = video.userName, fontWeight = FontWeight.Bold)
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // 더미 UI - 실제 영상 썸네일/재생기로 교체 예정
-                        Box(
+            if (videoList.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("불러올 영상이 없습니다.", color = Color.Gray)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White)
+                        .padding(12.dp)
+                ) {
+                    items(videoList) { video ->
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(180.dp)
-                                .background(Color.LightGray),
-                            contentAlignment = Alignment.Center
+                                .padding(vertical = 12.dp)
+                                .background(Color(0xFFF5F5F5), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
                         ) {
-                            Text("영상 미리보기")
-                        }
+                            // 유저 이름
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(Color.Gray, CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = video.userName, fontWeight = FontWeight.Bold)
+                            }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                        // 좋아요 & 댓글 아이콘 (좋아요 기능은 아직 구현x)
-                        Row {
-                            Icon(Icons.Default.FavoriteBorder, contentDescription = "좋아요")
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Icon(
-                                Icons.Default.ChatBubbleOutline,
-                                contentDescription = "댓글",
+                            // 더미 UI - 실제 영상 썸네일/재생기로 교체 예정
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                                    .background(Color.LightGray),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("영상 미리보기")
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 좋아요 & 댓글 아이콘 (좋아요 기능은 아직 구현x)
+                            Row {
+                                Icon(Icons.Default.FavoriteBorder, contentDescription = "좋아요")
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Icon(
+                                    Icons.Default.ChatBubbleOutline,
+                                    contentDescription = "댓글",
+                                    modifier = Modifier.clickable {
+                                        navController.navigate("${Screen.VideoDetail.route}/${video.id}")
+                                    }
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 영상제목
+                            Text(
+                                text = video.title,
                                 modifier = Modifier.clickable {
                                     navController.navigate("${Screen.VideoDetail.route}/${video.id}")
                                 }
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // 영상제목
-                        Text(
-                            text = video.title,
-                            modifier = Modifier.clickable {
-                                navController.navigate("${Screen.VideoDetail.route}/${video.id}")
-                            }
-                        )
                     }
                 }
             }
