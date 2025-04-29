@@ -218,7 +218,7 @@ fun VideoPlayer(url: String) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(Uri.parse(url)))
             prepare()
-            playWhenReady = false
+            playWhenReady = true
         }
     }
 
@@ -233,6 +233,13 @@ fun VideoPlayer(url: String) {
             modifier = Modifier
                 .width(320.dp)
                 .height(200.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            exoPlayer.playWhenReady = true // 터치하면 재생 시작
+                        }
+                    )
+                }
         )
     ) {
         onDispose {
