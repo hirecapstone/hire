@@ -1,11 +1,14 @@
 package com.example.hireapp.screens
 
+import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
@@ -13,21 +16,24 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import com.example.hireapp.models.Comment
 import com.example.hireapp.models.VideoItem
-import com.example.hireapp.navigation.Screen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,11 +41,15 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
     val db = Firebase.firestore
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     var video by remember { mutableStateOf<VideoItem?>(null) }
     var comments = remember { mutableStateListOf<Comment>() }
     var inputText by remember { mutableStateOf("") }
     var currentUserName by remember { mutableStateOf("me") }
+    val listState = rememberLazyListState()
+    var currentIndex by remember { mutableStateOf(0) }
+    val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
     // 유저 정보 가져오기
     LaunchedEffect(Unit) {
@@ -73,7 +83,11 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                 is String -> userField
                 else -> "알 수 없음"
             }
-            video = VideoItem(id = videoId, title = title, userName = userName)
+            val videosList = doc.get("videos") as? List<Map<String, Any>>
+            val fileUrls = videosList?.mapNotNull { it["fileUrl"] as? String } ?: emptyList()
+
+            video = VideoItem(id = videoId, title = title, userName = userName, fileUrls = fileUrls)
+
         } catch (e: Exception) {
             Toast.makeText(context, "영상 정보를 불러오지 못했습니다.", Toast.LENGTH_SHORT).show()
         }
@@ -112,21 +126,54 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                         )
                         Text(text = video!!.userName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Box(
+
+                        // 영상 슬라이드
+                        LazyRow(
+                            state = listState,
+                            flingBehavior = flingBehavior,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(200.dp)
-                                .background(Color.LightGray, RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
                         ) {
-                            Text("영상 미리보기")
+                            itemsIndexed(video!!.fileUrls) { index, url ->
+                                Box(
+                                    modifier = Modifier
+                                        .width(320.dp)
+                                        .height(200.dp)
+                                        .pointerInput(Unit) {
+                                            detectTapGestures { tapOffset ->
+                                                if (tapOffset.x > size.width / 2) {
+                                                    // 오른쪽 터치
+                                                    if (currentIndex < video!!.fileUrls.lastIndex) {
+                                                        currentIndex++
+                                                        coroutineScope.launch {
+                                                            listState.animateScrollToItem(currentIndex)
+                                                        }
+                                                    }
+                                                } else {
+                                                    // 왼쪽 터치
+                                                    if (currentIndex > 0) {
+                                                        currentIndex--
+                                                        coroutineScope.launch {
+                                                            listState.animateScrollToItem(currentIndex)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                ) {
+                                    VideoPlayer(url = url)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
                         }
+
                         Spacer(modifier = Modifier.height(16.dp))
                     }
-                    items(comments) {
+                    itemsIndexed(comments) { index, comment ->
                         Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                            Text(text = it.user, fontWeight = FontWeight.Bold)
-                            Text(text = it.text)
+                            Text(text = comment.user, fontWeight = FontWeight.Bold)
+                            Text(text = comment.text)
                         }
                     }
                 }
@@ -160,6 +207,43 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     CircularProgressIndicator()
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun VideoPlayer(url: String) {
+    val context = LocalContext.current
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(Uri.parse(url)))
+            prepare()
+            playWhenReady = true
+        }
+    }
+
+    DisposableEffect(
+        AndroidView(
+            factory = {
+                PlayerView(it).apply {
+                    player = exoPlayer
+                    useController = false
+                }
+            },
+            modifier = Modifier
+                .width(320.dp)
+                .height(200.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            exoPlayer.playWhenReady = true // 터치하면 재생 시작
+                        }
+                    )
+                }
+        )
+    ) {
+        onDispose {
+            exoPlayer.release()
         }
     }
 }

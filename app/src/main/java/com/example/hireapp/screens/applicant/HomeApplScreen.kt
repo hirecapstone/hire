@@ -1,8 +1,10 @@
 package com.example.hireapp.screens.applicant
 
+import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,9 +18,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.models.VideoItem
@@ -27,6 +32,9 @@ import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 
 @Composable
 fun HomeApplScreen(navController: NavController) {
@@ -46,8 +54,6 @@ fun HomeApplScreen(navController: NavController) {
             Log.d("FirestoreDebug", "총 interview 문서 수: ${interviewDocs.size()}")
 
             interviewDocs.forEach { doc ->
-                Log.d("FirestoreDebug", "문서 ${doc.id} 필드: ${doc.data}")
-
                 val title = doc.getString("title") ?: run {
                     Log.w("FirestoreDebug", "문서 ${doc.id} → title 없음")
                     return@forEach
@@ -68,8 +74,19 @@ fun HomeApplScreen(navController: NavController) {
                     else -> "알 수 없음"
                 }
 
-                Log.d("FirestoreDebug", "문서 ${doc.id} → 사용자 이름: $userName")
-                resultList.add(VideoItem(id = doc.id, title = title, userName = userName))
+                val videos = doc.get("videos") as? List<Map<String, Any>>
+                val fileUrl = videos?.firstOrNull()?.get("fileUrl") as? String
+
+                Log.d("FirestoreDebug", "문서 ${doc.id} → 사용자 이름: $userName, fileUrl: $fileUrl")
+
+                resultList.add(
+                    VideoItem(
+                        id = doc.id,
+                        title = title,
+                        userName = userName,
+                        fileUrl = fileUrl
+                    )
+                )
             }
 
             videoList = resultList
@@ -120,20 +137,24 @@ fun HomeApplScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // 더미 UI - 실제 영상 썸네일/재생기로 교체 예정
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(180.dp)
-                                    .background(Color.LightGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("영상 미리보기")
+                            // 영상 미리보기
+                            if (video.fileUrl != null) {
+                                VideoPlayer(url = video.fileUrl)
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp)
+                                        .background(Color.LightGray),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("영상 없음")
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // 좋아요 & 댓글 아이콘 (좋아요 기능은 아직 구현x)
+                            // 좋아요 & 댓글 아이콘
                             Row {
                                 Icon(Icons.Default.FavoriteBorder, contentDescription = "좋아요")
                                 Spacer(modifier = Modifier.width(16.dp))
@@ -159,6 +180,43 @@ fun HomeApplScreen(navController: NavController) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun VideoPlayer(url: String) {
+    val context = LocalContext.current
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(Uri.parse(url)))
+            prepare()
+            playWhenReady = false
+        }
+    }
+
+    DisposableEffect(
+        AndroidView(
+            factory = {
+                PlayerView(it).apply {
+                    player = exoPlayer
+                    useController = false
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            exoPlayer.playWhenReady = true // 터치하면 재생 시작
+                        }
+                    )
+                }
+        )
+    ) {
+        onDispose {
+            exoPlayer.release()
         }
     }
 }
