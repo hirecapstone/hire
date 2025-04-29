@@ -200,7 +200,7 @@ fun VideoPlayer(url: String) {
             factory = {
                 PlayerView(it).apply {
                     player = exoPlayer
-                    useController = false
+                    useController = true
                 }
             },
             modifier = Modifier
