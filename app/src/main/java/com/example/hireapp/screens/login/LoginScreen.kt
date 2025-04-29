@@ -100,7 +100,7 @@ fun LoginScreen(navController: NavController) {
                 Text("로그인")
             }
             Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = { navController.navigate("signup") }) {
+            TextButton(onClick = { navController.navigate("sign_up") }) {
                 Text("회원가입")
             }
         }
