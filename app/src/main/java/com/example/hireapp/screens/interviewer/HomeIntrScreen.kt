@@ -49,11 +49,11 @@ fun HomeIntrScreen(navController: NavController) {
 
     /**
      * db의 면접 영상들을 필터 조건에 맞게 불러오는 메서드
+     * 필터 아이템은 최대 10개 (파이어베이스 whereIn 제한)
      *
      * @param filterItems 필터 조건
      * @param size 불러올 영상 개수
      */
-    // TODO: 영상 저장 형식 확정한 후 재작업 필요
     fun loadVideosWithFilter(filterItems: List<String>, size: Int) {
         LoadingState.show()
 
@@ -69,7 +69,7 @@ fun HomeIntrScreen(navController: NavController) {
                 val docs: QuerySnapshot
 
                 if (filterItems.isNotEmpty()) {
-                    docs = videoRef.whereIn("category", filterItems).get().await()
+                    docs = videoRef.whereIn("category.major", filterItems).get().await()
                 } else {
                     docs = videoRef.get().await()
                 }

@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.hireapp.models.MyPageVideoItem
 import com.example.hireapp.navigation.Screen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
@@ -31,6 +34,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.io.InputStream
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 data class Video(val id: String, val url: String)
 
@@ -47,6 +52,11 @@ fun MyPageApplScreen(navController: NavController) {
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var videos by remember { mutableStateOf<List<Video>>(emptyList()) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    // 인터뷰 목록 불러올 변수
+    var videoList by remember { mutableStateOf<List<MyPageVideoItem>>(emptyList()) }
+    // 공개 비공개 드롭다운
+    var expanded by remember { mutableStateOf(false) }
 
     if (user == null) {
         Toast.makeText(context, "로그인 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -66,19 +76,26 @@ fun MyPageApplScreen(navController: NavController) {
     }
 
     LaunchedEffect(Unit) {
-        try {
-            val videosCollection = db.collection("videos")
-            val querySnapshot = videosCollection.whereEqualTo("uploader", "정인턴").get().await()
-            val videoList = querySnapshot.documents.mapNotNull { document ->
-                val videoId = document.id
-                val videoUrl = storage.reference.child("interview-films/session_1743959687524/$videoId").downloadUrl.await().toString()
-                Video(videoId, videoUrl)
-            }
-            videos = videoList
-            println("Videos loaded: $videos")  // 디버깅을 위해 로그 추가
-        } catch (e: Exception) {
-            Toast.makeText(context, "영상을 불러오는 중 오류가 발생했습니다: ${e.message}", Toast.LENGTH_LONG).show()
-            println("Error loading videos: ${e.message}")  // 디버깅을 위해 로그 추가
+        val documents = db.collection("interview")
+            .whereEqualTo("user", user.uid)
+            .get()
+            .await()
+
+        videoList = documents.map { doc ->
+            val category = doc.get("category") as? Map<*, *>
+
+            val date = doc.getTimestamp("uploadTime")?.toDate()
+            val dateFormat = SimpleDateFormat("yyyy년 MM월 dd일 HH:mm", Locale.getDefault())
+            val formattedDate = date?.let { dateFormat.format(it) } ?: "날짜 없음"
+
+            MyPageVideoItem(
+                id = doc.id,
+                title = doc.getString("title") ?: "제목 없음",
+                date = formattedDate,
+                major = category?.get("major") as? String ?: "대분류 없음",
+                minor = category?.get("sub") as? String ?: "소분류 없음",
+                isPublic = doc.getBoolean("public") ?: false
+            )
         }
     }
 
@@ -182,13 +199,57 @@ fun MyPageApplScreen(navController: NavController) {
 
                 // 영상 목록 표시
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White)
-                        .padding(12.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(videos) { video ->
-                        Text("${video.id}: ${video.url}", modifier = Modifier.padding(8.dp))
+                    items(videoList) { video ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+                        ) {
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = video.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(text = "촬영일: ${video.date}")
+                                    Text(text = "대분류: ${video.major} / 소분류: ${video.minor}")
+                                    Text(text = if (video.isPublic) "공개" else "비공개")
+                                }
+
+                                IconButton(
+                                    onClick = { expanded = true },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "더보기 메뉴"
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        // TODO: 설정 변경시 바로 적용되도록 새로고침 추가
+                                        text = { Text(if (video.isPublic) "비공개로 설정" else "공개로 설정") },
+                                        onClick = {
+                                            expanded = false
+                                            FirebaseFirestore.getInstance()
+                                                .collection("interview")
+                                                .document(video.id)
+                                                .update("public", !video.isPublic)
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
