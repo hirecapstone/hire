@@ -44,7 +44,7 @@ fun SignUpScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = {
                 if (role == "면접자" || role == "면접관") {
-                    navController.navigate("signup_common/$role")
+                    navController.navigate("sign_up_common/$role")
                 } else {
                     // 역할이 선택되지 않은 경우에 대한 처리
                     Toast.makeText(context, "역할을 선택해주세요.", Toast.LENGTH_SHORT).show()
