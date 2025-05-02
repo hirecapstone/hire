@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -48,10 +49,9 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
     var inputText by remember { mutableStateOf("") }
     var currentUserName by remember { mutableStateOf("me") }
     val listState = rememberLazyListState()
-    var currentIndex by remember { mutableStateOf(0) }
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
-    // 유저 정보 가져오기
+    // 현재 로그인한 유저 이름 가져오기
     LaunchedEffect(Unit) {
         val user = auth.currentUser
         if (user != null) {
@@ -65,24 +65,42 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
         }
     }
 
-    // 영상 정보 불러오기
+    // 영상 상세 정보 가져오기
     LaunchedEffect(videoId) {
         try {
             val doc = db.collection("interview").document(videoId).get().await()
             val title = doc.getString("title") ?: "제목 없음"
+
             val userField = doc.get("user")
             val userName = when (userField) {
                 is DocumentReference -> {
                     try {
                         val snapshot = userField.get().await()
-                        snapshot.getString("name") ?: "이름 없음"
+                        snapshot.getString("name")
                     } catch (e: Exception) {
-                        "이름 조회 실패"
+                        null
                     }
                 }
-                is String -> userField
-                else -> "알 수 없음"
+                is String -> {
+                    try {
+                        val snapshot = db.collection("users").document(userField).get().await()
+                        snapshot.getString("name")
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                else -> null
+            } ?: "알 수 없음"
+
+            if (userName == "알 수 없음") {
+                Toast.makeText(context, "유저 이름을 불러올 수 없어 기본값 사용", Toast.LENGTH_SHORT).show()
             }
+
+//            if (userName.isNullOrEmpty()) {
+//                Toast.makeText(context, "유저 이름을 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
+//                return@LaunchedEffect
+//            }
+
             val videosList = doc.get("videos") as? List<Map<String, Any>>
             val fileUrls = videosList?.mapNotNull { it["fileUrl"] as? String } ?: emptyList()
 
@@ -93,7 +111,29 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
         }
     }
 
-    Scaffold(
+    // 댓글 불러오기
+    LaunchedEffect(videoId) {
+        db.collection("interview")
+            .document(videoId)
+            .collection("comments")
+            .orderBy("timestamp")
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Toast.makeText(context, "댓글 불러오기 실패", Toast.LENGTH_SHORT).show()
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    comments.clear()
+                    for (doc in snapshot.documents) {
+                        val user = doc.getString("user") ?: "익명"
+                        val text = doc.getString("text") ?: ""
+                        comments.add(Comment(user, text))
+                    }
+                }
+            }
+    }
+
+    Scaffold (
         topBar = {
             TopAppBar(
                 title = { Text("") },
@@ -124,43 +164,25 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
-                        Text(text = video!!.userName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(
+                            text = video!!.userName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // 영상 슬라이드
                         LazyRow(
                             state = listState,
                             flingBehavior = flingBehavior,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp)
+                                .aspectRatio(9f / 16f)
                         ) {
                             itemsIndexed(video!!.fileUrls) { index, url ->
                                 Box(
                                     modifier = Modifier
-                                        .width(320.dp)
-                                        .height(200.dp)
-                                        .pointerInput(Unit) {
-                                            detectTapGestures { tapOffset ->
-                                                if (tapOffset.x > size.width / 2) {
-                                                    // 오른쪽 터치
-                                                    if (currentIndex < video!!.fileUrls.lastIndex) {
-                                                        currentIndex++
-                                                        coroutineScope.launch {
-                                                            listState.animateScrollToItem(currentIndex)
-                                                        }
-                                                    }
-                                                } else {
-                                                    // 왼쪽 터치
-                                                    if (currentIndex > 0) {
-                                                        currentIndex--
-                                                        coroutineScope.launch {
-                                                            listState.animateScrollToItem(currentIndex)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        .fillMaxWidth()
+                                        .aspectRatio(9f / 16f)
                                 ) {
                                     VideoPlayer(url = url)
                                 }
@@ -170,6 +192,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
 
                         Spacer(modifier = Modifier.height(16.dp))
                     }
+
                     itemsIndexed(comments) { index, comment ->
                         Column(modifier = Modifier.padding(vertical = 8.dp)) {
                             Text(text = comment.user, fontWeight = FontWeight.Bold)
@@ -192,8 +215,22 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     )
                     IconButton(onClick = {
                         if (inputText.isNotBlank()) {
-                            comments.add(Comment(currentUserName, inputText))
-                            inputText = ""
+                            val newComment = Comment(currentUserName, inputText)
+                            coroutineScope.launch {
+                                try {
+                                    db.collection("interview")
+                                        .document(videoId)
+                                        .collection("comments")
+                                        .add(mapOf(
+                                            "user" to newComment.user,
+                                            "text" to newComment.text,
+                                            "timestamp" to System.currentTimeMillis()
+                                        ))
+                                    inputText = ""
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "댓글 등록 실패", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         }
                     }) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "댓글 전송")
@@ -231,12 +268,11 @@ fun VideoPlayer(url: String) {
                 }
             },
             modifier = Modifier
-                .width(320.dp)
-                .height(200.dp)
+                .fillMaxSize()
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
-                            exoPlayer.playWhenReady = true // 터치하면 재생 시작
+                            exoPlayer.playWhenReady = true
                         }
                     )
                 }

@@ -40,7 +40,6 @@ import androidx.media3.ui.PlayerView
 fun HomeApplScreen(navController: NavController) {
     var videoList by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
 
-    // Firestore에서 모든 interview 문서 불러오기
     LaunchedEffect(Unit) {
         val db = Firebase.firestore
         val resultList = mutableListOf<VideoItem>()
@@ -53,31 +52,50 @@ fun HomeApplScreen(navController: NavController) {
 
             Log.d("FirestoreDebug", "총 interview 문서 수: ${interviewDocs.size()}")
 
-            interviewDocs.forEach { doc ->
-                val title = doc.getString("title") ?: run {
-                    Log.w("FirestoreDebug", "문서 ${doc.id} → title 없음")
-                    return@forEach
-                }
+            for (doc in interviewDocs) {
+                val title = doc.getString("title") ?: continue
 
                 val userField = doc.get("user")
                 val userName = when (userField) {
                     is DocumentReference -> {
                         try {
                             val snapshot = userField.get().await()
-                            snapshot.getString("name") ?: "이름 없음"
+                            snapshot.getString("name")
                         } catch (e: Exception) {
                             Log.e("FirestoreDebug", "문서 ${doc.id} → user 문서 불러오기 실패: ${e.message}")
-                            "이름 조회 실패"
+                            null
                         }
                     }
-                    is String -> userField
-                    else -> "알 수 없음"
+                    is String -> {
+                        try {
+                            val snapshot = db.collection("users").document(userField).get().await()
+                            snapshot.getString("name")
+                        } catch (e: Exception) {
+                            Log.e("FirestoreDebug", "문서 ${doc.id} → UUID로 유저 조회 실패: ${e.message}")
+                            null
+                        }
+                    }
+                    else -> null
+                } ?: "알 수 없음"
+
+//                // userName이 null이면 리스트에 추가 안함
+//                if (userName.isNullOrEmpty()) {
+//                    Log.w("FirestoreDebug", "문서 ${doc.id} → user name 가져오기 실패, 스킵")
+//                    continue
+//                }
+
+                if (userName == "알 수 없음") {
+                    Log.w("FirestoreDebug", "문서 ${doc.id} → user name 가져오기 실패, 기본값 '알 수 없음' 사용")
                 }
 
+                //fileUrl 없으면 리스트 추가 안함
                 val videos = doc.get("videos") as? List<Map<String, Any>>
                 val fileUrl = videos?.firstOrNull()?.get("fileUrl") as? String
 
-                Log.d("FirestoreDebug", "문서 ${doc.id} → 사용자 이름: $userName, fileUrl: $fileUrl")
+                if (fileUrl.isNullOrEmpty()) {
+                    Log.w("FirestoreDebug", "문서 ${doc.id} → fileUrl 없음, 스킵")
+                    continue
+                }
 
                 resultList.add(
                     VideoItem(
@@ -138,18 +156,13 @@ fun HomeApplScreen(navController: NavController) {
                             Spacer(modifier = Modifier.height(12.dp))
 
                             // 영상 미리보기
-                            if (video.fileUrl != null) {
-                                VideoPlayer(url = video.fileUrl)
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(180.dp)
-                                        .background(Color.LightGray),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("영상 없음")
-                                }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(9f / 16f)
+                                    .align(Alignment.CenterHorizontally)
+                            ) {
+                                VideoPlayer(url = video.fileUrl!!)
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -205,11 +218,11 @@ fun VideoPlayer(url: String) {
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
+                .aspectRatio(9f / 16f)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
-                            exoPlayer.playWhenReady = true // 터치하면 재생 시작
+                            exoPlayer.playWhenReady = true
                         }
                     )
                 }
