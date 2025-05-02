@@ -14,6 +14,9 @@ import com.example.hireapp.screens.applicant.interviewcapture.CaptureScreen
 import com.example.hireapp.screens.applicant.interviewcapture.QuestionScreen
 import com.example.hireapp.screens.interviewer.*
 import com.example.hireapp.screens.VideoDetailScreen
+import com.example.hireapp.screens.applicant.interviewcapture.CaptureOptionScreen
+import com.example.hireapp.screens.applicant.interviewcapture.CheckQuestionScreen
+import com.example.hireapp.screens.applicant.interviewcapture.InsertQuestionScreen
 
 @Composable
 fun AppNavHost(navController: NavHostController = rememberNavController(), userType: String? = null) {
@@ -40,6 +43,9 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
         composable(Screen.MyPageAppl.route) { MyPageApplScreen(navController) }
         composable(Screen.MyPageIntr.route) { MyPageIntrScreen(navController) }
         composable(Screen.Capture.route) { CaptureScreen(navController) }
+        composable(Screen.CaptureOption.route) { CaptureOptionScreen(navController) }
+        composable(Screen.InsertQuestion.route) { InsertQuestionScreen(navController) }
+        composable(Screen.CheckQuestion.route) { CheckQuestionScreen(navController) }
 
         // 질문 화면 추가 (세션 ID, major, sub 필요)
         composable(

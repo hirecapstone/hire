@@ -21,7 +21,7 @@ fun BottomNavigationAppl(navController: NavController) {
             icon = { Icon(Icons.Filled.Person, contentDescription = "촬영") },
             label = { Text("촬영") },
             selected = false,
-            onClick = { navController.navigate(Screen.Capture.route) }
+            onClick = { navController.navigate(Screen.CaptureOption.route)}
         )
         NavigationBarItem(
             icon = { Icon(Icons.Filled.Person, contentDescription = "마이페이지") },

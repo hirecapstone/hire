@@ -92,6 +92,10 @@ dependencies {
     implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-storage-ktx")
 
+    //mediapipe
+    implementation ("com.google.mlkit:face-detection:16.1.7")
+    implementation ("com.google.mlkit:pose-detection:17.0.0")
+
 }
 
 buildscript {

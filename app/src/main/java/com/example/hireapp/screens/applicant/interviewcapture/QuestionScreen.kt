@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
 package com.example.hireapp.screens.applicant.interviewcapture
 
 import android.content.Context
@@ -35,9 +36,24 @@ import com.google.firebase.firestore.Query
 import android.Manifest
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.ActivityCompat
+import androidx.navigation.compose.rememberNavController
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.firestore
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetectorOptions
+import com.google.mlkit.vision.pose.PoseDetection
+import com.google.mlkit.vision.pose.PoseLandmark
+import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
+import kotlin.math.abs
+import kotlin.math.atan2
+import androidx.camera.core.Preview as CameraPreview
+import androidx.compose.ui.graphics.Color
+import com.google.firebase.firestore.SetOptions
 
 
 @Composable
@@ -109,6 +125,16 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     var showRetryDialog by remember { mutableStateOf(false) }
     var errorOccurred by remember { mutableStateOf(false) }
 
+    var expression by remember { mutableStateOf("무표정") }
+    var posture   by remember { mutableStateOf("정자세") }
+    var gaze      by remember { mutableStateOf("정면") }
+
+    val smileTimestamps      = remember { mutableStateListOf<Int>() }
+    val badPostureTimestamps = remember { mutableStateListOf<Int>() }
+    val notFrontTimestamps   = remember { mutableStateListOf<Int>() }
+    var answerElapsed        by remember { mutableStateOf(0) }
+
+
     // Firestore 질문 로드 상태 확인
     if (aiQuestions.isEmpty()) {
         Box(
@@ -156,6 +182,10 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
         timeLeft = if (phase == "prepare") 30 else 60
 
         if (phase == "answer" && hasPermission) {
+            answerElapsed = 0
+            smileTimestamps.clear()
+            badPostureTimestamps.clear()
+            notFrontTimestamps.clear()
             startRecording(
                 context,
                 videoCapture.value,
@@ -171,24 +201,41 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             )
         }
 
+        // 1초 단위 루프
         while (timeLeft > 0 && !errorOccurred) {
             delay(1000L)
             timeLeft--
+
+            if (phase == "answer") {
+                answerElapsed++
+                if (expression == "웃음") smileTimestamps.add(answerElapsed)
+                if (posture    == "구부정") badPostureTimestamps.add(answerElapsed)
+                if (gaze       == "정면아님") notFrontTimestamps.add(answerElapsed)
+            }
         }
+
 
         if (!errorOccurred) {
             if (phase == "answer") {
+                // 녹화 중지
                 stopRecording(recording)
+
+                saveMediapipeResult(
+                    db, sessionId, currentIndex,
+                    smileTimestamps, badPostureTimestamps, notFrontTimestamps
+                )
+
             }
 
+            // 단계 전환
             if (phase == "prepare") {
                 phase = "answer"
             } else {
                 if (currentIndex < allQuestions.value.lastIndex) {
-                    currentIndex++
-                    phase = "prepare"
+                    currentIndex++; phase = "prepare"
                 } else {
-                    showTitleDialog = true
+                    // 질문 종료 → 제목 입력
+                    phase = "done"
                 }
             }
         }
@@ -196,13 +243,53 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
     // 화면 구성
     Column(modifier = Modifier.fillMaxSize()) {
-        CameraPreviewViewWithVideo(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(previewHeight),
-            lifecycleOwner = lifecycleOwner,
-            onVideoCaptureReady = { videoCapture.value = it }
-        )
+                .height(previewHeight)
+        ) {
+            // 기존 VideoCapture용 PreviewView
+            CameraPreviewViewWithVideo(
+                modifier = Modifier.matchParentSize(),
+                lifecycleOwner = lifecycleOwner,
+                onVideoCaptureReady = { videoCapture.value = it },
+                // → onAnalysis 콜백으로 실시간 결과 받기
+                onAnalysis = { expr, post, gz ->
+                    expression = expr
+                    posture    = post
+                    gaze       = gz
+                }
+            )
+            // 분석 결과 텍스트
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment   = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = expression,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = posture,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = gaze,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+
 
         Column(
             modifier = Modifier
@@ -228,6 +315,10 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                         phase = "answer"
                     } else {
                         stopRecording(recording)
+                        saveMediapipeResult(
+                            db, sessionId, currentIndex,
+                            smileTimestamps, badPostureTimestamps, notFrontTimestamps
+                        )
                         if (currentIndex < allQuestions.value.lastIndex) {
                             currentIndex++
                             phase = "prepare"
@@ -284,7 +375,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 // 권한 요청을 처리하는 함수
 private fun requestPermissions(
     context: Context,
-    permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>
+    permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>,
 ) {
     // 권한 요청: 오디오 및 카메라 권한 요청
     permissionLauncher.launch(
@@ -304,7 +395,7 @@ fun startRecording(
     sessionId: String,
     questionIndex: Int,
     onError: () -> Unit,
-    permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>
+    permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>,
 ) {
 
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
@@ -382,51 +473,100 @@ fun stopRecording(recordingRef: MutableState<Recording?>) {
     recordingRef.value = null
 }
 
+@androidx.annotation.OptIn(ExperimentalGetImage::class)
 @Composable
 fun CameraPreviewViewWithVideo(
     modifier: Modifier = Modifier,
-    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
-    onVideoCaptureReady: (VideoCapture<Recorder>) -> Unit
+    lifecycleOwner: LifecycleOwner,
+    onVideoCaptureReady: (VideoCapture<Recorder>) -> Unit,
+    onAnalysis: (expression: String, posture: String, gaze: String) -> Unit,
 ) {
     val context = LocalContext.current
     val previewView = remember { PreviewView(context) }
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val scope = rememberCoroutineScope()
 
-    AndroidView(
-        factory = { previewView },
-        modifier = modifier
-    ) {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+    // ML Kit 설정
+    val faceDetector = FaceDetection.getClient(
+        FaceDetectorOptions.Builder()
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+            .build()
+    )
+    val poseDetector = PoseDetection.getClient(
+        PoseDetectorOptions.Builder()
+            .setDetectorMode(PoseDetectorOptions.STREAM_MODE)
+            .build()
+    )
+
+    AndroidView(factory = { previewView }, modifier = modifier) {
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
 
-            val preview = androidx.camera.core.Preview.Builder().build().also {
-                it.setSurfaceProvider(previewView.surfaceProvider)
-            }
-
-            // Recorder 설정
-            val recorder = Recorder.Builder()
-                .setQualitySelector(QualitySelector.from(Quality.HD)) // 영상 품질 설정
+            // Preview
+            val preview = CameraPreview.Builder()
                 .build()
+                .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
-            // VideoCapture 객체 생성 및 오디오 캡처 활성화
+            // VideoCapture (녹화)
+            val recorder = Recorder.Builder()
+                .setQualitySelector(QualitySelector.from(Quality.HD))
+                .build()
             val videoCapture = VideoCapture.withOutput(recorder)
-
-            // 오디오 캡처 활성화
             onVideoCaptureReady(videoCapture)
 
-            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+            // ImageAnalysis (실시간 얼굴·자세 분석)
+            val analysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also { analyzer ->
+                    analyzer.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
+                        imageProxy.image?.let { mediaImage ->
+                            val input = InputImage.fromMediaImage(
+                                mediaImage,
+                                imageProxy.imageInfo.rotationDegrees
+                            )
+                            scope.launch {
+                                // 얼굴
+                                val faces = faceDetector.process(input).await()
+                                val expr = faces.firstOrNull()?.let { f ->
+                                    val l = f.leftEyeOpenProbability ?: 0f
+                                    val r = f.rightEyeOpenProbability ?: 0f
+                                    if ((f.smilingProbability ?: 0f) > 0.3f && l > 0.4f && r > 0.4f)
+                                        "웃음" else "무표정"
+                                } ?: "무표정"
+                                val gz = faces.firstOrNull()?.let { f ->
+                                    if (abs(f.headEulerAngleY) < 15f) "정면" else "정면아님"
+                                } ?: "정면"
 
-            try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    preview,
-                    videoCapture
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+                                // 어깨 좌우 기울기만 판단
+                                val pose = poseDetector.process(input).await()
+                                val ls = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+                                val rs = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+                                val post = if (ls != null && rs != null) {
+                                    val dx = rs.position.x - ls.position.x
+                                    val dy = rs.position.y - ls.position.y
+                                    val ang = abs(Math.toDegrees(atan2(dy, dx).toDouble()))
+                                    val slope = abs(dy / (dx.takeIf { it != 0f } ?: 1f))
+                                    if (ang < 10 || slope < 0.1f) "정자세" else "구부정"
+                                } else "정자세"
+
+                                onAnalysis(expr, post, gz)
+                                imageProxy.close()
+                            }
+                        } ?: imageProxy.close()
+                    }
+                }
+
+            // 바인딩
+            cameraProvider.unbindAll()
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                CameraSelector.DEFAULT_FRONT_CAMERA,
+                preview,
+                videoCapture,
+                analysis
+            )
         }, ContextCompat.getMainExecutor(context))
     }
 }
@@ -437,7 +577,7 @@ fun uploadVideoAndSave(
     major: String,
     sub: String,
     videoTitle: String, // 제목 추가
-    navController: NavController
+    navController: NavController,
 ) {
     val db = FirebaseFirestore.getInstance()
     val storage = FirebaseStorage.getInstance()
@@ -449,7 +589,6 @@ fun uploadVideoAndSave(
         try {
             val videoUrls = mutableListOf<String>()
 
-            // 각 파일을 Firebase Storage에 업로드하고 URL을 저장
             recordedFiles.forEach { file ->
                 try {
                     val fileUri = Uri.fromFile(file)
@@ -473,14 +612,6 @@ fun uploadVideoAndSave(
 
             val currentUser = auth.currentUser
             val userUUID = currentUser?.uid;
-//            val userName = currentUser?.uid?.let { userId ->
-//                // uid로 Firestore에서 사용자 이름을 가져옵니다.
-//                db.collection("users").document(userId)
-//                    .get()
-//                    .await()
-//                    .getString("name") ?: "Unknown User" // "name" 필드를 가져옵니다.
-//            } ?: "Unknown User"
-
             // Firestore에서 sessionId와 일치하는 interview_questions 문서 가져오기
             val latestQuestionRef = db.collection("interview_questions")
                 .document(sessionId) // sessionId로 문서를 찾음
@@ -520,21 +651,43 @@ fun uploadVideoAndSave(
                     Log.e("Upload", "Firestore에 데이터 저장 실패: ${e.message}, 경로: $dbpath")
                 }
 
-
-
-
-
-//            withContext(Dispatchers.Main) {
-//                // 로컬 파일 삭제 및 마이페이지로 이동
-//                recordedFiles.forEach { it.delete() }
-//                navController.navigate(Screen.MyPageAppl.route) {
-//                    popUpTo(Screen.MyPageAppl.route) { inclusive = true }
-//                }
-//            }
         } catch (e: Exception) {
-            Log.e("UploadError", "업로드 실패: ${e.message} 문서이름은 ${sessionId}",)
+            Log.e("UploadError", "업로드 실패: ${e.message} 문서이름은 ${sessionId}")
         }
     }
 }
 
+private fun saveMediapipeResult(
+    db: FirebaseFirestore,
+    sessionId: String,
+    videoIndex: Int,
+    smiles: List<Int>,
+    bads: List<Int>,
+    nots: List<Int>
+) {
+    val field = "video${videoIndex + 1}"
+    val data = mapOf(
+        field to mapOf(
+            "smile" to mapOf("timestamps" to smiles, "count" to smiles.size),
+            "badposture" to mapOf("timestamps" to bads, "count" to bads.size),
+            "notfront" to mapOf("timestamps" to nots, "count" to nots.size)
+        )
+    )
+    db.collection("interview_mediapipe")
+        .document(sessionId)
+        .set(data, SetOptions.merge())
+        .addOnSuccessListener { Log.d("Mediapipe","저장 성공: $field") }
+        .addOnFailureListener { e -> Log.e("Mediapipe","저장 실패", e) }
+}
 
+@Preview(showBackground = true)
+@Composable
+fun PreviewQuestionScreen() {
+    // 임시 NavController, sessionId, major, sub
+    QuestionScreen(
+        navController = rememberNavController(),
+        sessionId = "test",
+        major     = "전공",
+        sub       = "세부전공"
+    )
+}
