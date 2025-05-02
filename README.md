@@ -5,6 +5,7 @@
 1. CaptureOptionScreen.kt: 촬영옵션 선택화면(질문생성,질문입력 중 선택)
 2. InsertQuestionScreen.kt: 질문입력화면
 3. CheckQuestionScreen.kt: 입력한 질문 촬영화면
+
 #수정파일
 1. build.gradle.kts: mediapipe의존성 추가
 2. QuestionScreen.kt: mediapipe분석추가
