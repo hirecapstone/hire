@@ -55,7 +55,6 @@ import androidx.camera.core.Preview as CameraPreview
 import androidx.compose.ui.graphics.Color
 import com.google.firebase.firestore.SetOptions
 
-
 @Composable
 fun QuestionScreen(navController: NavController, sessionId: String, major: String, sub: String) {
     Log.d("SessionIdCheck", "전달된 sessionId: $sessionId")
@@ -65,19 +64,9 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
     val previewHeight = screenWidth * 3 / 4
-
-    // Firestore 참조
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
-
-    // 질문 리스트
-    val fixedQuestions = listOf(
-        "자기소개 해주세요.",
-        "지원 동기는 무엇인가요?",
-        "본인의 장단점을 말해주세요."
-    )
     var aiQuestions by remember { mutableStateOf<List<String>>(emptyList()) }
-
     // 제목 입력 관련 상태
     var videoTitle by remember { mutableStateOf("") }
     var showTitleDialog by remember { mutableStateOf(false) }
@@ -112,7 +101,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     }
 
     // 전체 질문 리스트
-    val allQuestions = remember { derivedStateOf { fixedQuestions + aiQuestions } }
+    val allQuestions = remember { derivedStateOf { aiQuestions } }
 
     var currentIndex by remember { mutableStateOf(0) }
     var phase by remember { mutableStateOf("prepare") }
@@ -290,7 +279,6 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             }
         }
 
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -397,7 +385,6 @@ fun startRecording(
     onError: () -> Unit,
     permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>,
 ) {
-
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
         try {
             val fileName = "${sessionId}_q${questionIndex + 1}.mp4"
@@ -422,7 +409,6 @@ fun startRecording(
                         }
                     }
                 }
-
             if (recording == null) {
                 Log.e("VideoCapture", "녹화 시작 실패: videoCapture == null")
                 onError()
@@ -454,7 +440,6 @@ fun PermissionRequester(onPermissionGranted: () -> Unit) {
             Log.d("Permissions", "Required permissions denied")
         }
     }
-
     // 권한 요청
     LaunchedEffect(Unit) {
         permissionLauncher.launch(
@@ -465,7 +450,6 @@ fun PermissionRequester(onPermissionGranted: () -> Unit) {
         )
     }
 }
-
 
 // 녹화 중지 함수
 fun stopRecording(recordingRef: MutableState<Recording?>) {
@@ -633,9 +617,6 @@ fun uploadVideoAndSave(
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
                 "public" to true
             )
-
-
-
 
             val dbpath = "interview/${sessionId.replace("/", "")}"
 
