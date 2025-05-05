@@ -55,6 +55,7 @@ import androidx.camera.core.Preview as CameraPreview
 import androidx.compose.ui.graphics.Color
 import com.google.firebase.firestore.SetOptions
 
+
 @Composable
 fun QuestionScreen(navController: NavController, sessionId: String, major: String, sub: String) {
     Log.d("SessionIdCheck", "전달된 sessionId: $sessionId")
@@ -69,7 +70,15 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     // Firestore 참조
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
+
+    // 질문 리스트
+    val fixedQuestions = listOf(
+        "자기소개 해주세요.",
+        "지원 동기는 무엇인가요?",
+        "본인의 장단점을 말해주세요."
+    )
     var aiQuestions by remember { mutableStateOf<List<String>>(emptyList()) }
+
     // 제목 입력 관련 상태
     var videoTitle by remember { mutableStateOf("") }
     var showTitleDialog by remember { mutableStateOf(false) }
@@ -104,7 +113,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     }
 
     // 전체 질문 리스트
-    val allQuestions = remember { derivedStateOf { aiQuestions } }
+    val allQuestions = remember { derivedStateOf { fixedQuestions + aiQuestions } }
 
     var currentIndex by remember { mutableStateOf(0) }
     var phase by remember { mutableStateOf("prepare") }
@@ -370,6 +379,7 @@ private fun requestPermissions(
     )
 }
 
+// 녹화 시작 함수
 fun startRecording(
     context: Context,
     videoCapture: VideoCapture<Recorder>?,
@@ -381,15 +391,8 @@ fun startRecording(
     permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>,
 ) {
     // 권한 확인
-    if (ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.RECORD_AUDIO
-        ) != PackageManager.PERMISSION_GRANTED ||
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.CAMERA
-        ) != PackageManager.PERMISSION_GRANTED
-    ) {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
         Log.e("PermissionError", "녹화 시작 실패: 권한 부족")
         requestPermissions(context, permissionLauncher)
         onError()
@@ -403,8 +406,8 @@ fun startRecording(
         return
     }
 
-
     try {
+        // 파일 경로 및 이름 설정 (중복 방지용 타임스탬프 추가)
         val fileName = "${sessionId}_q${questionIndex + 1}_${System.currentTimeMillis()}.mp4"
         val file = File(context.filesDir, fileName)
 
@@ -421,6 +424,7 @@ fun startRecording(
             .start(ContextCompat.getMainExecutor(context)) { event ->
                 if (event is VideoRecordEvent.Finalize) {
                     if (event.hasError()) {
+                        // 에러를 안전하게 로깅
                         val errorDetails = event.error?.toString() ?: "알 수 없는 오류"
                         Log.e("VideoCapture", "녹화 실패: $errorDetails")
                         onError()
@@ -430,6 +434,7 @@ fun startRecording(
                 }
             }
 
+        // 녹화 객체가 제대로 생성되었는지 확인
         if (recording == null) {
             Log.e("VideoCapture", "녹화 시작 실패: recording == null")
             onError()
@@ -437,8 +442,10 @@ fun startRecording(
             Log.d("VideoCapture", "녹화 시작됨: $fileName")
         }
 
+        // 녹화 상태 저장
         recordingRef.value = recording
     } catch (e: Exception) {
+        // 예외 처리
         Log.e("RecordingError", "녹화 중 오류 발생: ${e.localizedMessage}")
         onError()
     }
@@ -457,6 +464,7 @@ fun PermissionRequester(onPermissionGranted: () -> Unit) {
             Log.d("Permissions", "Required permissions denied")
         }
     }
+
     // 권한 요청
     LaunchedEffect(Unit) {
         permissionLauncher.launch(
@@ -467,6 +475,7 @@ fun PermissionRequester(onPermissionGranted: () -> Unit) {
         )
     }
 }
+
 
 // 녹화 중지 함수
 fun stopRecording(recordingRef: MutableState<Recording?>) {
@@ -634,6 +643,9 @@ fun uploadVideoAndSave(
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
                 "public" to true
             )
+
+
+
 
             val dbpath = "interview/${sessionId.replace("/", "")}"
 
