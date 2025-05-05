@@ -406,7 +406,6 @@ fun startRecording(
     }
 
     try {
-        // 파일 경로 및 이름 설정 (중복 방지용 타임스탬프 추가)
         val fileName = "${sessionId}_q${questionIndex + 1}_${System.currentTimeMillis()}.mp4"
         val file = File(context.filesDir, fileName)
 
@@ -423,7 +422,6 @@ fun startRecording(
             .start(ContextCompat.getMainExecutor(context)) { event ->
                 if (event is VideoRecordEvent.Finalize) {
                     if (event.hasError()) {
-                        // 에러를 안전하게 로깅
                         val errorDetails = event.error?.toString() ?: "알 수 없는 오류"
                         Log.e("VideoCapture", "녹화 실패: $errorDetails")
                         onError()
@@ -433,7 +431,6 @@ fun startRecording(
                 }
             }
 
-        // 녹화 객체가 제대로 생성되었는지 확인
         if (recording == null) {
             Log.e("VideoCapture", "녹화 시작 실패: recording == null")
             onError()
@@ -441,10 +438,8 @@ fun startRecording(
             Log.d("VideoCapture", "녹화 시작됨: $fileName")
         }
 
-        // 녹화 상태 저장
         recordingRef.value = recording
     } catch (e: Exception) {
-        // 예외 처리
         Log.e("RecordingError", "녹화 중 오류 발생: ${e.localizedMessage}")
         onError()
     }
