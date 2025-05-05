@@ -4,6 +4,8 @@ package com.example.hireapp.screens.applicant.interviewcapture
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -20,6 +22,12 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview as CameraPreview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
 import androidx.camera.view.PreviewView
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
@@ -34,14 +42,18 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import com.google.firebase.storage.FirebaseStorage
 import kotlin.math.abs
 import kotlin.math.atan2
 import java.util.ArrayList
+import java.io.File
 
 @SuppressLint("UnsafeOptInUsageError")
 @Composable
 fun CheckQuestionScreen(navController: NavController) {
-    // 1) 질문, 인덱스, 타이머
+    // 질문, 인덱스, 타이머
     val questions    = navController.previousBackStackEntry
         ?.savedStateHandle
         ?.get<ArrayList<String>>("questions") ?: arrayListOf()
@@ -49,7 +61,15 @@ fun CheckQuestionScreen(navController: NavController) {
     var isReady      by remember { mutableStateOf(true) }
     var timer        by remember { mutableStateOf(30) }
 
-    // 2) ML Kit 클라이언트
+    // 녹화 관련 상태
+    val sessionId        = remember { "session_${System.currentTimeMillis()}" }
+    val recordedFiles    = remember { mutableStateListOf<File>() }
+    val context = LocalContext.current
+    var currentRecording by remember { mutableStateOf<Recording?>(null) }
+    var showTitleDialog  by remember { mutableStateOf(false) }
+    var videoTitle       by remember { mutableStateOf("") }
+
+    // ML Kit 클라이언트
     val faceDetector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
@@ -62,50 +82,123 @@ fun CheckQuestionScreen(navController: NavController) {
             .build()
     )
 
-    // 3) 상태 변수
+    // 상태 변수
     var expression by remember { mutableStateOf("무표정") }
     var posture   by remember { mutableStateOf("정자세") }
     var gaze      by remember { mutableStateOf("정면") }
 
-    // 4) 타이머
-    LaunchedEffect(currentIndex, isReady) {
-        timer = if (isReady) 30 else 60
-        while (timer > 0) {
-            delay(1_000L)
-            timer--
-        }
-        if (isReady) {
-            isReady = false
-        } else {
-            if (currentIndex < questions.size - 1) {
-                currentIndex++; isReady = true
-            } else {
-                navController.navigate(Screen.HomeAppl.route)
-            }
-        }
-    }
+    // Mediapipe 결과 저장용
+    val db                    = FirebaseFirestore.getInstance()
+    val smileTimestamps      = remember { mutableStateListOf<Int>() }
+    val badPostureTimestamps = remember { mutableStateListOf<Int>() }
+    val notFrontTimestamps   = remember { mutableStateListOf<Int>() }
+    var answerElapsed        by remember { mutableStateOf(0) }
 
-    // 5) 권한
-    val context = LocalContext.current
+    // 카메라 준비
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val isInPreview    = LocalInspectionMode.current
+    val previewView    = remember { PreviewView(context) }
+    val cameraFuture   = remember { ProcessCameraProvider.getInstance(context) }
+    val scope          = rememberCoroutineScope()
+    val recorder     = remember {
+        Recorder.Builder()
+            .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
+            .build()
+    }
+    val videoCapture = remember { VideoCapture.withOutput(recorder) }
+    // 권한
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
                     PackageManager.PERMISSION_GRANTED
         )
     }
+    var hasAudioPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                    PackageManager.PERMISSION_GRANTED
+        )
+    }
+
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> hasPermission = granted }
-    LaunchedEffect(Unit) {
-        if (!hasPermission) launcher.launch(Manifest.permission.CAMERA)
+    val audioLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> hasAudioPermission = granted }
+
+    LaunchedEffect(sessionId, questions) {
+        if (questions.isNotEmpty()) {
+            db.collection("interview_questions")
+                .document(sessionId)
+                .set(mapOf("questions" to questions))
+                .addOnSuccessListener {
+                    Log.d("Firestore", "질문 저장 성공: $sessionId")
+                }
+                .addOnFailureListener { e ->
+                    Log.e("Firestore", "질문 저장 실패", e)
+                }
+        }
     }
 
-    // 6) 카메라 준비
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val isInPreview    = LocalInspectionMode.current
-    val previewView    = remember { PreviewView(context) }
-    val cameraFuture   = remember { ProcessCameraProvider.getInstance(context) }
-    val scope          = rememberCoroutineScope()
+    // 타이머
+    LaunchedEffect(currentIndex, isReady) {
+        if(!isReady){
+            answerElapsed = 0
+            smileTimestamps.clear()
+            badPostureTimestamps.clear()
+            notFrontTimestamps.clear()
+            val file = File(context.cacheDir, "${sessionId}_q${currentIndex+1}.mp4")
+            recordedFiles.add(file)
+            currentRecording = videoCapture.output
+                .prepareRecording(context, FileOutputOptions.Builder(file).build())
+                .withAudioEnabled()
+                .start(ContextCompat.getMainExecutor(context)) { /* no-op */ }
+        } else{
+            currentRecording?.stop()
+            currentRecording = null
+        }
+        timer = if (isReady) 30 else 60
+        while (timer > 0) {
+            delay(1_000L)
+            timer--
+            if (!isReady) {
+                // 1초마다 분석 결과 저장
+                answerElapsed++
+                if (expression == "웃음")      smileTimestamps.add(answerElapsed)
+                if (posture    == "구부정")    badPostureTimestamps.add(answerElapsed)
+                if (gaze       == "정면아님") notFrontTimestamps.add(answerElapsed)
+
+                saveMediapipeResult(
+                    db, sessionId, currentIndex,
+                    smileTimestamps, badPostureTimestamps, notFrontTimestamps
+                )
+            }
+        }
+        if (!isReady) {
+            // 답변 종료 후 녹화 중지 및 최종 저장
+            currentRecording?.stop()
+            saveMediapipeResult(
+                db, sessionId, currentIndex,
+                smileTimestamps, badPostureTimestamps, notFrontTimestamps
+            )
+        }
+
+        if (isReady) {
+            isReady = false
+        } else {
+            if (currentIndex < questions.size - 1) {
+                currentIndex++; isReady = true
+            } else {
+                showTitleDialog = true
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasPermission) launcher.launch(Manifest.permission.CAMERA)
+        if (!hasAudioPermission) audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
 
     LaunchedEffect(cameraFuture, hasPermission) {
         if (!hasPermission) return@LaunchedEffect
@@ -161,21 +254,25 @@ fun CheckQuestionScreen(navController: NavController) {
             provider.unbindAll()
             provider.bindToLifecycle(
                 lifecycleOwner, CameraSelector.DEFAULT_FRONT_CAMERA,
-                preview, analysis
+                preview, analysis,videoCapture
             )
         }, ContextCompat.getMainExecutor(context))
     }
 
-    // 7) UI
+    // UI
     Scaffold(
         bottomBar = {
             Button(
                 onClick = {
+                    if(!isReady){
+                        currentRecording?.stop()
+                        currentRecording = null
+                    }
                     if (isReady) isReady = false
                     else if (currentIndex < questions.size - 1) {
                         currentIndex++; isReady = true
                     } else {
-                        navController.navigate(Screen.HomeAppl.route)
+                        showTitleDialog = true
                     }
                 },
                 modifier = Modifier
@@ -255,7 +352,71 @@ fun CheckQuestionScreen(navController: NavController) {
                 )
             }
         }
+        if (showTitleDialog) {
+            AlertDialog(
+                onDismissRequest = { },
+                title = { Text("영상 제목 작성") },
+                text = {
+                    Column {
+                        Text("영상의 제목을 작성해주세요:")
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = videoTitle,
+                            onValueChange = { videoTitle = it },
+                            placeholder = { Text("제목 입력") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val storageRef = FirebaseStorage.getInstance().reference
+                        recordedFiles.forEachIndexed { idx, file ->
+                            val uri = Uri.fromFile(file)
+                            val ref = storageRef.child("videos/$sessionId/${sessionId}_q${idx+1}.mp4")
+                            ref.putFile(uri)
+                        }
+                        showTitleDialog = false
+                        navController.navigate(Screen.HomeAppl.route)
+                    }) {
+                        Text("저장")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        recordedFiles.clear()
+                        showTitleDialog = false
+                        navController.navigate(Screen.HomeAppl.route)
+                    }) {
+                        Text("취소")
+                    }
+                }
+            )
+        }
     }
+}
+private fun saveMediapipeResult(
+    db: FirebaseFirestore,
+    sessionId: String,
+    videoIndex: Int,
+    smiles: List<Int>,
+    bads: List<Int>,
+    nots: List<Int>
+) {
+    val field = "video${videoIndex + 1}"
+    val data = mapOf(
+        field to mapOf(
+            "smile" to mapOf("timestamps" to smiles, "count" to smiles.size),
+            "badposture" to mapOf("timestamps" to bads, "count" to bads.size),
+            "notfront" to mapOf("timestamps" to nots, "count" to nots.size)
+        )
+    )
+    db.collection("interview_mediapipe")
+        .document(sessionId)
+        .set(data, SetOptions.merge())
+        .addOnSuccessListener { Log.d("Mediapipe","저장 성공: $field") }
+        .addOnFailureListener { e -> Log.e("Mediapipe","저장 실패", e) }
 }
 
 @Preview(showBackground = true)
