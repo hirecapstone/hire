@@ -390,8 +390,15 @@ fun startRecording(
     permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>,
 ) {
     // 권한 확인
-    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
-        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+    if (ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) != PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) != PackageManager.PERMISSION_GRANTED
+    ) {
         Log.e("PermissionError", "녹화 시작 실패: 권한 부족")
         requestPermissions(context, permissionLauncher)
         onError()
