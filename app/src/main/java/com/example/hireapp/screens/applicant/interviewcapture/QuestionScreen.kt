@@ -53,6 +53,7 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import androidx.camera.core.Preview as CameraPreview
 import androidx.compose.ui.graphics.Color
+import com.example.hireapp.util.LoadingState
 import com.google.firebase.firestore.SetOptions
 
 @Composable
@@ -86,6 +87,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                             val questions = document.get("questions") as? List<String>
                             questions ?: emptyList()
                         }
+                        LoadingState.hide()
                         Log.d("FirestoreSuccess", "질문 로드 성공: $aiQuestions")
                     } else {
                         Log.w("FirestoreWarning", "해당 세션 ID에 대한 질문이 없습니다.")
@@ -126,16 +128,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
     // Firestore 질문 로드 상태 확인
     if (aiQuestions.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("질문을 생성 중입니다.", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
+        LoadingState.show("질문을 생성 중입니다.")
         return
     }
 

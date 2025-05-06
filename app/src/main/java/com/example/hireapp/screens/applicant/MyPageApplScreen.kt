@@ -28,6 +28,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.models.MyPageVideoItem
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.util.LoadingState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -37,20 +38,16 @@ import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-data class Video(val id: String, val url: String)
-
 @Composable
 fun MyPageApplScreen(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
-    val storage = FirebaseStorage.getInstance()
     val user = auth.currentUser
     val context = LocalContext.current
 
     var userDoc by remember { mutableStateOf<DocumentSnapshot?>(null)}
     var isLoading by remember { mutableStateOf(true) }
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-    var videos by remember { mutableStateOf<List<Video>>(emptyList()) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     // 인터뷰 목록 불러올 변수
@@ -65,37 +62,38 @@ fun MyPageApplScreen(navController: NavController) {
     }
 
     LaunchedEffect(Unit) {
-        db.collection("users").document(user.uid).get()
-            .addOnSuccessListener { docs ->
-                userDoc = docs
-                isLoading = false
+        LoadingState.show("인터뷰 목록을 불러오는 중입니다.")
+
+        try {
+            val userData = db.collection("users").document(user.uid).get().await()
+            userDoc = userData
+
+            val documents = db.collection("interview")
+                .whereEqualTo("user", user.uid)
+                .get()
+                .await()
+
+            videoList = documents.map { doc ->
+                val category = doc.get("category") as? Map<*, *>
+
+                val date = doc.getTimestamp("uploadTime")?.toDate()
+                val dateFormat = SimpleDateFormat("yyyy년 MM월 dd일 HH:mm", Locale.getDefault())
+                val formattedDate = date?.let { dateFormat.format(it) } ?: "날짜 없음"
+
+                MyPageVideoItem(
+                    id = doc.id,
+                    title = doc.getString("title") ?: "제목 없음",
+                    date = formattedDate,
+                    major = category?.get("major") as? String ?: "대분류 없음",
+                    minor = category?.get("sub") as? String ?: "소분류 없음",
+                    isPublic = doc.getBoolean("public") ?: false
+                )
             }
-            .addOnFailureListener { task ->
-                Toast.makeText(context, "유저 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
-            }
-    }
 
-    LaunchedEffect(Unit) {
-        val documents = db.collection("interview")
-            .whereEqualTo("user", user.uid)
-            .get()
-            .await()
-
-        videoList = documents.map { doc ->
-            val category = doc.get("category") as? Map<*, *>
-
-            val date = doc.getTimestamp("uploadTime")?.toDate()
-            val dateFormat = SimpleDateFormat("yyyy년 MM월 dd일 HH:mm", Locale.getDefault())
-            val formattedDate = date?.let { dateFormat.format(it) } ?: "날짜 없음"
-
-            MyPageVideoItem(
-                id = doc.id,
-                title = doc.getString("title") ?: "제목 없음",
-                date = formattedDate,
-                major = category?.get("major") as? String ?: "대분류 없음",
-                minor = category?.get("sub") as? String ?: "소분류 없음",
-                isPublic = doc.getBoolean("public") ?: false
-            )
+            isLoading = false
+        } catch (e: Exception) {
+            Toast.makeText(context, "마이페이지 로드 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
+            isLoading = false
         }
     }
 
@@ -107,9 +105,9 @@ fun MyPageApplScreen(navController: NavController) {
         }
     }
 
-    if (isLoading) {
-        Text("로딩 중 ...")
-    } else {
+    if (!isLoading) {
+        LoadingState.hide()
+
         Scaffold(
             bottomBar = { BottomNavigationAppl(navController) }
         ) { innerPadding ->
@@ -152,12 +150,30 @@ fun MyPageApplScreen(navController: NavController) {
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
-                        Text(userDoc?.getString("name") ?: "정보 없음", style = MaterialTheme.typography.titleMedium)
-                        Text(userDoc?.getString("email") ?: "정보 없음", style = MaterialTheme.typography.bodyMedium)
-                        Text("전화번호: ${userDoc?.getString("phoneNumber") ?: "정보 없음"}", style = MaterialTheme.typography.bodyMedium)
-                        Text("직책: ${userDoc?.getString("jobTitle") ?: "정보 없음"}", style = MaterialTheme.typography.bodyMedium)
-                        Text("생년월일: ${userDoc?.getString("birthDate") ?: "정보 없음"}", style = MaterialTheme.typography.bodyMedium)
-                        Text("분야: ${userDoc?.getString("category") ?: "정보 없음"}", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            userDoc?.getString("name") ?: "정보 없음",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            userDoc?.getString("email") ?: "정보 없음",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            "전화번호: ${userDoc?.getString("phoneNumber") ?: "정보 없음"}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            "직책: ${userDoc?.getString("jobTitle") ?: "정보 없음"}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            "생년월일: ${userDoc?.getString("birthDate") ?: "정보 없음"}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            "분야: ${userDoc?.getString("category") ?: "정보 없음"}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
 
@@ -237,14 +253,26 @@ fun MyPageApplScreen(navController: NavController) {
                                     onDismissRequest = { expanded = false }
                                 ) {
                                     DropdownMenuItem(
-                                        // TODO: 설정 변경시 바로 적용되도록 새로고침 추가
                                         text = { Text(if (video.isPublic) "비공개로 설정" else "공개로 설정") },
                                         onClick = {
                                             expanded = false
+                                            val newStatus = !video.isPublic
                                             FirebaseFirestore.getInstance()
                                                 .collection("interview")
                                                 .document(video.id)
-                                                .update("public", !video.isPublic)
+                                                .update("public", newStatus)
+                                                .addOnSuccessListener {
+                                                    videoList = videoList.map {
+                                                        if (it.id == video.id) it.copy(isPublic = newStatus) else it
+                                                    }
+                                                }
+                                                .addOnFailureListener {
+                                                    Toast.makeText(
+                                                        context,
+                                                        "공개 상태 변경에 실패했습니다.",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
                                         }
                                     )
                                 }
