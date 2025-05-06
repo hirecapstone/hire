@@ -90,16 +90,12 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     }
                 }
                 else -> null
-            } ?: "알 수 없음"
-
-            if (userName == "알 수 없음") {
-                Toast.makeText(context, "유저 이름을 불러올 수 없어 기본값 사용", Toast.LENGTH_SHORT).show()
             }
 
-//            if (userName.isNullOrEmpty()) {
-//                Toast.makeText(context, "유저 이름을 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
-//                return@LaunchedEffect
-//            }
+            if (userName.isNullOrEmpty()) {
+                Toast.makeText(context, "유저 이름을 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                return@LaunchedEffect
+            }
 
             val videosList = doc.get("videos") as? List<Map<String, Any>>
             val fileUrls = videosList?.mapNotNull { it["fileUrl"] as? String } ?: emptyList()

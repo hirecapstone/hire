@@ -76,16 +76,12 @@ fun HomeApplScreen(navController: NavController) {
                         }
                     }
                     else -> null
-                } ?: "알 수 없음"
+                }
 
-//                // userName이 null이면 리스트에 추가 안함
-//                if (userName.isNullOrEmpty()) {
-//                    Log.w("FirestoreDebug", "문서 ${doc.id} → user name 가져오기 실패, 스킵")
-//                    continue
-//                }
-
-                if (userName == "알 수 없음") {
-                    Log.w("FirestoreDebug", "문서 ${doc.id} → user name 가져오기 실패, 기본값 '알 수 없음' 사용")
+                // userName이 null이면 리스트에 추가 안함
+                if (userName.isNullOrEmpty()) {
+                    Log.w("FirestoreDebug", "문서 ${doc.id} → user name 가져오기 실패, 스킵")
+                    continue
                 }
 
                 //fileUrl 없으면 리스트 추가 안함
