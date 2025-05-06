@@ -1,11 +1,11 @@
 # hire
 2025-1 하이어 캡스톤 디자인
 
-## 구현
-- 홈피드, 상세페이지 영상
-  영상 크기에 맞추어 화면에 나오도록
-- UUID로 뜨는 이름 수정
-- 댓글 기능
+#수정파일
+1. QuestionScreen.kt
+2. CheckQuestionScreen.kt
 
-## 미구현
-- 화면 회전시 페이지 재로드 막기
+#수정사항
+1. 타이머 멈춤현상 해결
+2. 직접 입력한 질문도 interview컬렉션에 저장
+3. mediapipe, feedback interview컬렉션에 연결
