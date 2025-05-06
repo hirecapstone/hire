@@ -55,6 +55,7 @@ import androidx.camera.core.Preview as CameraPreview
 import androidx.compose.ui.graphics.Color
 import com.google.firebase.firestore.SetOptions
 
+
 @Composable
 fun QuestionScreen(navController: NavController, sessionId: String, major: String, sub: String) {
     Log.d("SessionIdCheck", "전달된 sessionId: $sessionId")
@@ -64,9 +65,20 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
     val previewHeight = screenWidth * 3 / 4
+    var isTimerRunning by remember { mutableStateOf(false) }
+
+    // Firestore 참조
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
+
+    // 질문 리스트
+    val fixedQuestions = listOf(
+        "자기소개 해주세요.",
+        "지원 동기는 무엇인가요?",
+        "본인의 장단점을 말해주세요."
+    )
     var aiQuestions by remember { mutableStateOf<List<String>>(emptyList()) }
+
     // 제목 입력 관련 상태
     var videoTitle by remember { mutableStateOf("") }
     var showTitleDialog by remember { mutableStateOf(false) }
@@ -101,7 +113,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     }
 
     // 전체 질문 리스트
-    val allQuestions = remember { derivedStateOf { aiQuestions } }
+    val allQuestions = remember { derivedStateOf { fixedQuestions + aiQuestions } }
 
     var currentIndex by remember { mutableStateOf(0) }
     var phase by remember { mutableStateOf("prepare") }
@@ -166,8 +178,9 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
         }
     }
 
-    // 질문 단계별 타이머 및 녹화
+    // 타이머 및 녹화 로직
     LaunchedEffect(phase, currentIndex) {
+        isTimerRunning = phase == "prepare" || phase == "answer"
         timeLeft = if (phase == "prepare") 30 else 60
 
         if (phase == "answer" && hasPermission) {
@@ -185,47 +198,44 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 onError = {
                     errorOccurred = true
                     showRetryDialog = true
+                    isTimerRunning = false
                 },
                 permissionLauncher
             )
         }
+    }
 
-        // 1초 단위 루프
-        while (timeLeft > 0 && !errorOccurred) {
-            delay(1000L)
-            timeLeft--
-
-            if (phase == "answer") {
-                answerElapsed++
-                if (expression == "웃음") smileTimestamps.add(answerElapsed)
-                if (posture    == "구부정") badPostureTimestamps.add(answerElapsed)
-                if (gaze       == "정면아님") notFrontTimestamps.add(answerElapsed)
+    // 타이머
+    LaunchedEffect(isTimerRunning) {
+        if (isTimerRunning) {
+            while (timeLeft > 0) {
+                delay(1000L)
+                timeLeft--
+                if (phase == "answer") {
+                    answerElapsed++
+                    if (expression == "웃음") smileTimestamps.add(answerElapsed)
+                    if (posture == "구부정") badPostureTimestamps.add(answerElapsed)
+                    if (gaze == "정면아님") notFrontTimestamps.add(answerElapsed)
+                }
             }
-        }
 
-
-        if (!errorOccurred) {
             if (phase == "answer") {
-                // 녹화 중지
                 stopRecording(recording)
 
                 saveMediapipeResult(
                     db, sessionId, currentIndex,
                     smileTimestamps, badPostureTimestamps, notFrontTimestamps
                 )
-
             }
 
-            // 단계 전환
             if (phase == "prepare") {
                 phase = "answer"
+            } else if (currentIndex < allQuestions.value.lastIndex) {
+                currentIndex++
+                phase = "prepare"
             } else {
-                if (currentIndex < allQuestions.value.lastIndex) {
-                    currentIndex++; phase = "prepare"
-                } else {
-                    // 질문 종료 → 제목 입력
-                    phase = "done"
-                }
+                phase = "done"
+                showTitleDialog = true
             }
         }
     }
@@ -237,19 +247,16 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 .fillMaxWidth()
                 .height(previewHeight)
         ) {
-            // 기존 VideoCapture용 PreviewView
             CameraPreviewViewWithVideo(
                 modifier = Modifier.matchParentSize(),
                 lifecycleOwner = lifecycleOwner,
                 onVideoCaptureReady = { videoCapture.value = it },
-                // → onAnalysis 콜백으로 실시간 결과 받기
                 onAnalysis = { expr, post, gz ->
                     expression = expr
-                    posture    = post
-                    gaze       = gz
+                    posture = post
+                    gaze = gz
                 }
             )
-            // 분석 결과 텍스트
             Box(
                 Modifier
                     .matchParentSize()
@@ -258,7 +265,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment   = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = expression,
@@ -322,7 +329,6 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
         }
     }
 
-    // 제목 작성 다이얼로그
     if (showTitleDialog) {
         AlertDialog(
             onDismissRequest = {},
@@ -351,7 +357,6 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 Button(onClick = {
                     navController.navigate(Screen.HomeAppl.route)
                     showTitleDialog = false
-
                 }) {
                     Text("취소")
                 }
@@ -385,45 +390,64 @@ fun startRecording(
     onError: () -> Unit,
     permissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>,
 ) {
-    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-        try {
-            val fileName = "${sessionId}_q${questionIndex + 1}.mp4"
-            val file = File(context.filesDir, fileName)
+    // 권한 확인
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        Log.e("PermissionError", "녹화 시작 실패: 권한 부족")
+        requestPermissions(context, permissionLauncher)
+        onError()
+        return
+    }
 
-            recordedFiles.add(file)
+    // videoCapture null 체크
+    if (videoCapture == null) {
+        Log.e("VideoCapture", "녹화 시작 실패: videoCapture == null")
+        onError()
+        return
+    }
 
-            val outputOptions = FileOutputOptions.Builder(file).build()
+    try {
+        // 파일 경로 및 이름 설정 (중복 방지용 타임스탬프 추가)
+        val fileName = "${sessionId}_q${questionIndex + 1}_${System.currentTimeMillis()}.mp4"
+        val file = File(context.filesDir, fileName)
 
-            val recording = videoCapture?.output
-                ?.prepareRecording(context, outputOptions)
-                ?.apply {
-                    withAudioEnabled()  // 오디오 캡처를 활성화
-                }
-                ?.start(ContextCompat.getMainExecutor(context)) { event ->
-                    if (event is VideoRecordEvent.Finalize) {
-                        if (event.hasError()) {
-                            Log.e("VideoCapture", "녹화 실패: ${event.error}")
-                            onError()
-                        } else {
-                            Log.d("VideoCapture", "녹화 완료: ${file.absolutePath}")
-                        }
+        recordedFiles.add(file) // 녹화된 파일 리스트에 추가
+
+        val outputOptions = FileOutputOptions.Builder(file).build()
+
+        // 녹화 시작
+        val recording = videoCapture.output
+            .prepareRecording(context, outputOptions)
+            .apply {
+                withAudioEnabled() // 오디오 캡처 활성화
+            }
+            .start(ContextCompat.getMainExecutor(context)) { event ->
+                if (event is VideoRecordEvent.Finalize) {
+                    if (event.hasError()) {
+                        // 에러를 안전하게 로깅
+                        val errorDetails = event.error?.toString() ?: "알 수 없는 오류"
+                        Log.e("VideoCapture", "녹화 실패: $errorDetails")
+                        onError()
+                    } else {
+                        Log.d("VideoCapture", "녹화 완료: ${file.absolutePath}")
                     }
                 }
-            if (recording == null) {
-                Log.e("VideoCapture", "녹화 시작 실패: videoCapture == null")
-                onError()
-            } else {
-                Log.d("VideoCapture", "녹화 시작됨: $fileName")
             }
 
-            recordingRef.value = recording
-        } catch (e: Exception) {
-            Log.e("Recording", "녹화 중 오류 발생: ${e.message}")
+        // 녹화 객체가 제대로 생성되었는지 확인
+        if (recording == null) {
+            Log.e("VideoCapture", "녹화 시작 실패: recording == null")
             onError()
+        } else {
+            Log.d("VideoCapture", "녹화 시작됨: $fileName")
         }
-    } else {
-        // 오디오 권한이 없으면 권한을 요청
-        requestPermissions(context, permissionLauncher)
+
+        // 녹화 상태 저장
+        recordingRef.value = recording
+    } catch (e: Exception) {
+        // 예외 처리
+        Log.e("RecordingError", "녹화 중 오류 발생: ${e.localizedMessage}")
+        onError()
     }
 }
 
@@ -440,6 +464,7 @@ fun PermissionRequester(onPermissionGranted: () -> Unit) {
             Log.d("Permissions", "Required permissions denied")
         }
     }
+
     // 권한 요청
     LaunchedEffect(Unit) {
         permissionLauncher.launch(
@@ -450,6 +475,7 @@ fun PermissionRequester(onPermissionGranted: () -> Unit) {
         )
     }
 }
+
 
 // 녹화 중지 함수
 fun stopRecording(recordingRef: MutableState<Recording?>) {
@@ -617,6 +643,9 @@ fun uploadVideoAndSave(
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
                 "public" to true
             )
+
+
+
 
             val dbpath = "interview/${sessionId.replace("/", "")}"
 
