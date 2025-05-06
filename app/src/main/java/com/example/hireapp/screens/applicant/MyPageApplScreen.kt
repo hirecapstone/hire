@@ -30,8 +30,8 @@ import com.example.hireapp.models.MyPageVideoItem
 import com.example.hireapp.navigation.Screen
 import com.example.hireapp.util.LoadingState
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.io.InputStream
@@ -45,10 +45,18 @@ fun MyPageApplScreen(navController: NavController) {
     val user = auth.currentUser
     val context = LocalContext.current
 
-    var userDoc by remember { mutableStateOf<DocumentSnapshot?>(null)}
+    var userDoc by remember { mutableStateOf<DocumentSnapshot?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+
+    // Fields for editing
+    var name by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
+    var birthDate by remember { mutableStateOf("") }
+    var role by remember { mutableStateOf("") }
 
     // 인터뷰 목록 불러올 변수
     var videoList by remember { mutableStateOf<List<MyPageVideoItem>>(emptyList()) }
@@ -65,8 +73,19 @@ fun MyPageApplScreen(navController: NavController) {
         LoadingState.show("인터뷰 목록을 불러오는 중입니다.")
 
         try {
-            val userData = db.collection("users").document(user.uid).get().await()
-            userDoc = userData
+            db.collection("users").document(user.uid).get()
+                .addOnSuccessListener { doc ->
+                    userDoc = doc
+                    name = doc.getString("name") ?: ""
+                    email = doc.getString("email") ?: ""
+                    phoneNumber = doc.getString("phoneNumber") ?: ""
+                    birthDate = doc.getString("birthDate") ?: ""
+                    role = doc.getString("role") ?: ""
+                    isLoading = false
+                }
+                .addOnFailureListener {
+                    Toast.makeText(context, "유저 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                }
 
             val documents = db.collection("interview")
                 .whereEqualTo("user", user.uid)
@@ -91,7 +110,7 @@ fun MyPageApplScreen(navController: NavController) {
             }
 
             isLoading = false
-        } catch (e: Exception) {
+        } catch(e: Exception) {
             Toast.makeText(context, "마이페이지 로드 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
             isLoading = false
         }
@@ -150,56 +169,47 @@ fun MyPageApplScreen(navController: NavController) {
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
-                        Text(
-                            userDoc?.getString("name") ?: "정보 없음",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            userDoc?.getString("email") ?: "정보 없음",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "전화번호: ${userDoc?.getString("phoneNumber") ?: "정보 없음"}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "직책: ${userDoc?.getString("jobTitle") ?: "정보 없음"}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "생년월일: ${userDoc?.getString("birthDate") ?: "정보 없음"}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "분야: ${userDoc?.getString("category") ?: "정보 없음"}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Text("이름: $name", style = MaterialTheme.typography.titleMedium)
+                        Text("생년월일: $birthDate", style = MaterialTheme.typography.bodyMedium)
+                        Text("이메일: $email", style = MaterialTheme.typography.bodyMedium)
+                        Text("전화번호: $phoneNumber", style = MaterialTheme.typography.bodyMedium)
+                        Text("역할: ${if (role == "면접자") "면접자" else "면접관"}", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
 
-                // 로그아웃 버튼
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.End
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Button(onClick = { showLogoutDialog = true }) {
+                    Button(
+                        onClick = { showEditDialog = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("개인정보 수정")
+                    }
+
+                    Button(
+                        onClick = { showLogoutDialog = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Text("로그아웃")
                     }
                 }
+
 
                 if (showLogoutDialog) {
                     AlertDialog(
                         onDismissRequest = { showLogoutDialog = false },
                         title = { Text("로그아웃") },
-                        text = { Text("정말 로그아웃하시겠습니까?") },
+                        text = { Text("로그아웃 하시겠습니까?") },
                         confirmButton = {
                             Button(onClick = {
+                                FirebaseAuth.getInstance().signOut()
                                 showLogoutDialog = false
-                                auth.signOut()
                                 navController.navigate(Screen.Login.route) {
-                                    popUpTo(Screen.Login.route) { inclusive = true }
+                                    popUpTo(0) // 백스택 제거
                                 }
                             }) {
                                 Text("예")
@@ -208,6 +218,60 @@ fun MyPageApplScreen(navController: NavController) {
                         dismissButton = {
                             Button(onClick = { showLogoutDialog = false }) {
                                 Text("아니오")
+                            }
+                        }
+                    )
+                }
+
+                // 개인정보 수정 다이얼로그
+                if (showEditDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showEditDialog = false },
+                        title = { Text("개인정보 수정") },
+                        text = {
+                            Column {
+                                TextField(
+                                    value = name,
+                                    onValueChange = { name = it },
+                                    label = { Text("이름") }
+                                )
+                                TextField(
+                                    value = email,
+                                    onValueChange = { email = it },
+                                    label = { Text("이메일") }
+                                )
+                                TextField(
+                                    value = phoneNumber,
+                                    onValueChange = { phoneNumber = it },
+                                    label = { Text("전화번호") }
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            Button(onClick = {
+                                // Firestore 업데이트
+                                db.collection("users").document(user.uid)
+                                    .update(
+                                        mapOf(
+                                            "name" to name,
+                                            "email" to email,
+                                            "phoneNumber" to phoneNumber
+                                        )
+                                    )
+                                    .addOnSuccessListener {
+                                        Toast.makeText(context, "수정 완료", Toast.LENGTH_SHORT).show()
+                                        showEditDialog = false
+                                    }
+                                    .addOnFailureListener {
+                                        Toast.makeText(context, "수정 실패", Toast.LENGTH_SHORT).show()
+                                    }
+                            }) {
+                                Text("저장")
+                            }
+                        },
+                        dismissButton = {
+                            Button(onClick = { showEditDialog = false }) {
+                                Text("취소")
                             }
                         }
                     )
@@ -290,3 +354,4 @@ fun MyPageApplScreen(navController: NavController) {
 fun PreviewMyPageApplScreen() {
     MyPageApplScreen(navController = rememberNavController())
 }
+
