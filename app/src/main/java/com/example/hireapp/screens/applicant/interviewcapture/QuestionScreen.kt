@@ -159,51 +159,43 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
         }
     }
 
-    // 질문 단계별 타이머 및 녹화
+    // 타이머 및 녹화/분석 로직 통합
     LaunchedEffect(phase, currentIndex) {
-        isTimerRunning = phase == "prepare" || phase == "answer"
-        timeLeft = if (phase == "prepare") 30 else 60
-
-        if (phase == "answer" && hasPermission) {
+        if (phase == "prepare" || phase == "answer") {
+            timeLeft = if (phase == "prepare") 30 else 60
             answerElapsed = 0
             smileTimestamps.clear()
             badPostureTimestamps.clear()
             notFrontTimestamps.clear()
-            startRecording(
-                context,
-                videoCapture.value,
-                recording,
-                recordedFiles,
-                sessionId,
-                currentIndex,
-                onError = {
-                    errorOccurred = true
-                    showRetryDialog = true
-                    isTimerRunning = false
-                },
-                permissionLauncher
-            )
-        }
-    }
 
+            if (phase == "answer" && hasPermission) {
+                startRecording(
+                    context,
+                    videoCapture.value,
+                    recording,
+                    recordedFiles,
+                    sessionId,
+                    currentIndex,
+                    onError = {
+                        // 오류 처리
+                    },
+                    permissionLauncher
+                )
+            }
 
-    // 타이머
-    LaunchedEffect(isTimerRunning) {
-        if (isTimerRunning) {
             while (timeLeft > 0) {
                 delay(1000L)
                 timeLeft--
                 if (phase == "answer") {
                     answerElapsed++
-                    if (expression == "웃음") smileTimestamps.add(answerElapsed)
-                    if (posture == "구부정") badPostureTimestamps.add(answerElapsed)
-                    if (gaze == "정면아님") notFrontTimestamps.add(answerElapsed)
+                    if (expression == "웃음")      smileTimestamps.add(answerElapsed)
+                    if (posture == "구부정")       badPostureTimestamps.add(answerElapsed)
+                    if (gaze == "정면아님")          notFrontTimestamps.add(answerElapsed)
                 }
             }
 
             if (phase == "answer") {
                 stopRecording(recording)
-
                 saveMediapipeResult(
                     db, sessionId, currentIndex,
                     smileTimestamps, badPostureTimestamps, notFrontTimestamps
@@ -212,12 +204,14 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
             if (phase == "prepare") {
                 phase = "answer"
-            } else if (currentIndex < allQuestions.value.lastIndex) {
-                currentIndex++
-                phase = "prepare"
             } else {
-                phase = "done"
-                showTitleDialog = true
+                if (currentIndex < aiQuestions.lastIndex) {
+                    currentIndex++
+                    phase = "prepare"
+                } else {
+                    phase = "done"
+                    showTitleDialog = true
+                }
             }
         }
     }
@@ -597,6 +591,14 @@ fun uploadVideoAndSave(
 
             val questions = latestQuestionRef.get("questions") as? List<String> ?: listOf()
 
+            // — mediapipe 데이터 가져오기 —
+            val mediapipeSnap = db.collection("interview_mediapipe")
+                .document(sessionId)
+                .get()
+                .await()
+            val mediapipeData = mediapipeSnap.data ?: emptyMap<String, Any>()
+
+            val feedbackRef =db.collection("interview_feedback").document(sessionId)
             // Firestore에 저장할 데이터 생성
             val videoData = hashMapOf(
                 "category" to hashMapOf(
@@ -608,6 +610,8 @@ fun uploadVideoAndSave(
                 "uploadTime" to FieldValue.serverTimestamp(),
                 "user" to userUUID,
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
+                "mediapipe"  to mediapipeData,
+                "feedback"  to feedbackRef,
                 "public" to true
             )
 
