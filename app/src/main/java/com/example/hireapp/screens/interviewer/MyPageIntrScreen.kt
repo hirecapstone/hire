@@ -109,7 +109,8 @@ fun MyPageIntrScreen(navController: NavController) {
                             modifier = Modifier
                                 .size(64.dp)
                                 .clickable { launcher.launch("image/*") }
-                                .background(Color.Gray, CircleShape)
+                                .background(Color.Gray, CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "이미지 추가",

@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -27,7 +29,7 @@ fun CameraSetupScreen(onNext: () -> Unit) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
-    val previewHeight = screenWidth * 3 / 4
+    val previewHeight = screenWidth * 7 / 5
 
     var hasPermission by remember { mutableStateOf(false) }
 
@@ -77,10 +79,30 @@ fun CameraSetupScreen(onNext: () -> Unit) {
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            Text("카메라 세팅", style = MaterialTheme.typography.titleMedium)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.setting),
+                        contentDescription = "질문 생성 이미지",
+                        modifier = Modifier.size(30.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("카메라 세팅", style = MaterialTheme.typography.titleMedium)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "세팅이 완료되었으면 촬영 시작 버튼을 누르세요",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
 
-        Button(
+            Button(
             onClick = onNext,
             modifier = Modifier
                 .fillMaxWidth()

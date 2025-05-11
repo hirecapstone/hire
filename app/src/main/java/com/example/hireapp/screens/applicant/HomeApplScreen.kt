@@ -2,6 +2,7 @@ package com.example.hireapp.screens.applicant
 
 import android.net.Uri
 import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -120,10 +122,24 @@ fun HomeApplScreen(navController: NavController) {
                 .padding(innerPadding)
         ) {
             if (videoList.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("불러올 영상이 없습니다.", color = Color.Gray)
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Image(
+                            painter = painterResource(id = com.example.hireapp.R.drawable.no),
+                            contentDescription = "없음 아이콘",
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("불러올 영상이 없습니다.", color = Color.Gray)
+                    }
                 }
-            } else {
+            }
+            else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()

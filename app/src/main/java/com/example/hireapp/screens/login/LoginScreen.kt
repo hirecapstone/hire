@@ -5,6 +5,9 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +22,16 @@ import com.example.hireapp.navigation.AppNavHost
 import com.example.hireapp.navigation.Screen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
+import com.example.hireapp.R
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
@@ -26,6 +39,7 @@ fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var userName by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
@@ -82,24 +96,68 @@ fun LoginScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        )
+        {
+            Spacer(modifier = Modifier.height(50.dp))
+            Image(
+                painter = painterResource(id = R.drawable.login),
+                contentDescription = "앱 로고",
+                modifier = Modifier
+                    .height(275.dp)
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                contentScale = ContentScale.Fit
+            )
+            Spacer(modifier = Modifier.height(50.dp))
+
             Text(text = "로그인", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(16.dp))
-            TextField(value = email, onValueChange = { email = it }, label = { Text("이메일") })
-            Spacer(modifier = Modifier.height(8.dp))
+            TextField(value = email, onValueChange = { email = it }, label = { Text("이메일") }, modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp), leadingIcon = {
+                Icon(Icons.Rounded.AccountCircle, contentDescription = "")
+            },
+                textStyle = TextStyle(fontSize = 18.sp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            var passwordVisible by remember { mutableStateOf(false) }
+
             TextField(
                 value = password,
                 onValueChange = { password = it },
                 label = { Text("비밀번호") },
-                visualTransformation = PasswordVisualTransformation()
+                leadingIcon = {
+                    Icon(Icons.Rounded.Lock, contentDescription = null)
+                },
+                trailingIcon = {
+                    val visibilityIcon = if (passwordVisible)
+                        Icons.Default.Visibility
+                    else
+                        Icons.Default.VisibilityOff
+
+                    val description = if (passwordVisible)
+                        "비밀번호 숨기기"
+                    else
+                        "비밀번호 보이기"
+
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(imageVector = visibilityIcon, contentDescription = description)
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
+                textStyle = TextStyle(fontSize = 18.sp)
             )
+
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = { login() }) {
                 Text("로그인")
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             TextButton(onClick = { navController.navigate("sign_up") }) {
                 Text("회원가입")
             }
