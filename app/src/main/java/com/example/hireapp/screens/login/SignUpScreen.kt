@@ -141,7 +141,6 @@ fun SignUpScreen(navController: NavController) {
             }
         }
     }
-
 }
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -273,7 +272,7 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
                                     if (role == "면접자") {
                                         navController.navigate("login")
                                     } else {
-                                        navController.navigate("signup_interviewer")
+                                        navController.navigate("login") //signup_interviewer 오류나서 login으로 수정
                                     }
                                 }
                                 .addOnFailureListener { e ->

@@ -2,6 +2,7 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 package com.example.hireapp.screens.applicant.interviewcapture
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -26,6 +27,12 @@ import com.example.hireapp.navigation.Screen
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun InsertQuestionScreen(navController: NavController) {
@@ -37,9 +44,23 @@ fun InsertQuestionScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("질문 입력") }
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Image(
+                            painter = painterResource(id = com.example.hireapp.R.drawable.question),
+                            contentDescription = "질문 생성 이미지",
+                            modifier = Modifier
+                                .size(45.dp)
+                                .padding(end = 8.dp)
+                        )
+                        Text("질문 입력", fontSize = 20.sp)
+                    }
+                }
             )
         }
+
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -71,17 +92,34 @@ fun InsertQuestionScreen(navController: NavController) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                IconButton(onClick = { questionList.add("") }) {
-                    Icon(Icons.Default.Add, contentDescription = "질문 추가")
+                Button(onClick = { questionList.add("") }, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = com.example.hireapp.R.drawable.add),
+                            contentDescription = "질문 입력 이미지",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("추가", color = Color.Black)
+                    }
                 }
-                Button(onClick = {
-                    // 질문 리스트를 다음 화면으로 전달
-                    navController.currentBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("questions", ArrayList(questionList))
-                    navController.navigate(Screen.CheckQuestion.route)
-                }) {
-                    Text("다음")
+                Button(
+                    onClick = {
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle
+                            ?.set("questions", ArrayList(questionList))
+                        navController.navigate(Screen.CheckQuestion.route)
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = com.example.hireapp.R.drawable.next),
+                            contentDescription = "다음 이미지",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("다음", color = Color.Black)
+                    }
                 }
             }
         }
