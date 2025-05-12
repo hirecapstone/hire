@@ -29,7 +29,7 @@ fun WarningScreen(onNext: () -> Unit) {
         ) {
             Image(
                 painter = painterResource(id = com.example.hireapp.R.drawable.warn),
-                contentDescription = "경고 아이콘",
+                contentDescription = "경고 이미지",
                 modifier = Modifier.size(36.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))

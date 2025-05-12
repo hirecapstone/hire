@@ -87,7 +87,7 @@ fun CameraSetupScreen(onNext: () -> Unit) {
                 ) {
                     Image(
                         painter = painterResource(id = com.example.hireapp.R.drawable.setting),
-                        contentDescription = "질문 생성 이미지",
+                        contentDescription = "세팅 이미지",
                         modifier = Modifier.size(30.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))

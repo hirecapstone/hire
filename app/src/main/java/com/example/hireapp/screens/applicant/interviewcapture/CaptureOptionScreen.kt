@@ -27,7 +27,7 @@ fun CaptureOptionScreen(navController: NavController) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(
                             painter = painterResource(id = R.drawable.camera),
-                            contentDescription = "질문 생성 이미지",
+                            contentDescription = "카메라 이미지",
                             modifier = Modifier.size(28.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
