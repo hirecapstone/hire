@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
@@ -145,34 +146,39 @@ fun MyPageApplScreen(navController: NavController) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier.size(64.dp)
-                    ) {
-                        imageBitmap?.let {
-                            Image(
-                                bitmap = it,
-                                contentDescription = "User Image",
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clickable { launcher.launch("image/*") }
-                                    .background(Color.Gray, CircleShape)
-                            )
-                        } ?: Box(
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clickable { launcher.launch("image/*") }
-                                .background(Color.Gray, CircleShape)
-                        ) {
-                            Text(
-                                text = "이미지 추가",
-                                color = Color.White,
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        }
-                    }
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.info),
+                        contentDescription = "User Image",
+                        modifier = Modifier
+                            .size(96.dp)
+                    )
+//                    {
+//                        imageBitmap?.let {
+//                            Image(
+//                                bitmap = it,
+//                                contentDescription = "User Image",
+//                                modifier = Modifier
+//                                    .size(64.dp)
+//                                    .clickable { launcher.launch("image/*") }
+//                                    .background(Color.Gray, CircleShape)
+//                            )
+//                        } ?: Box(
+//                            modifier = Modifier
+//                                .size(64.dp)
+//                                .clickable { launcher.launch("image/*") }
+//                                .background(Color.Gray, CircleShape)
+//                        )
+//                        {
+//                            Text(
+//                                text = "이미지 추가",
+//                                color = Color.White,
+//                                modifier = Modifier.align(Alignment.Center)
+//                            )
+//                        }
+//                    }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text("이름: $name", style = MaterialTheme.typography.titleMedium)

@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -93,32 +94,36 @@ fun MyPageIntrScreen(navController: NavController) {
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier.size(64.dp)
-                    ) {
-                        bitmap?.let {
-                            Image(
-                                bitmap = it.asImageBitmap(),
-                                contentDescription = "User Image",
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clickable { launcher.launch("image/*") }
-                                    .background(Color.Gray, CircleShape)
-                            )
-                        } ?: Box(
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clickable { launcher.launch("image/*") }
-                                .background(Color.Gray, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "이미지 추가",
-                                color = Color.White,
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        }
-                    }
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.info),
+                        contentDescription = "User Image",
+                        modifier = Modifier
+                            .size(96.dp)
+                    )
+//                    {
+//                        bitmap?.let {
+//                            Image(
+//                                bitmap = it.asImageBitmap(),
+//                                contentDescription = "User Image",
+//                                modifier = Modifier
+//                                    .size(64.dp)
+//                                    .clickable { launcher.launch("image/*") }
+//                                    .background(Color.Gray, CircleShape)
+//                            )
+//                        } ?: Box(
+//                            modifier = Modifier
+//                                .size(64.dp)
+//                                .clickable { launcher.launch("image/*") }
+//                                .background(Color.Gray, CircleShape),
+//                            contentAlignment = Alignment.Center
+//                        ) {
+//                            Text(
+//                                text = "이미지 추가",
+//                                color = Color.White,
+//                                modifier = Modifier.align(Alignment.Center)
+//                            )
+//                        }
+//                    }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text(userDoc?.getString("name") ?: "정보 없음", style = MaterialTheme.typography.titleMedium)
