@@ -131,7 +131,7 @@ fun HomeApplScreen(navController: NavController) {
                     ) {
                         Image(
                             painter = painterResource(id = com.example.hireapp.R.drawable.no),
-                            contentDescription = "없음 아이콘",
+                            contentDescription = "없음 이미지",
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))

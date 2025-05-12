@@ -168,7 +168,7 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
             ) {
                 Image(
                     painter = painterResource(id = com.example.hireapp.R.drawable.register),
-                    contentDescription = "경고 아이콘",
+                    contentDescription = "등록 아이콘",
                     modifier = Modifier.size(36.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))

@@ -50,7 +50,7 @@ fun InsertQuestionScreen(navController: NavController) {
                     ) {
                         Image(
                             painter = painterResource(id = com.example.hireapp.R.drawable.question),
-                            contentDescription = "질문 생성 이미지",
+                            contentDescription = "질문 입력 이미지",
                             modifier = Modifier
                                 .size(45.dp)
                                 .padding(end = 8.dp)
@@ -81,7 +81,7 @@ fun InsertQuestionScreen(navController: NavController) {
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(onClick = { questionList.removeAt(index) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "삭제")
+                            Icon(Icons.Default.Delete, contentDescription = "삭제 아이콘")
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -96,7 +96,7 @@ fun InsertQuestionScreen(navController: NavController) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(
                             painter = painterResource(id = com.example.hireapp.R.drawable.add),
-                            contentDescription = "질문 입력 이미지",
+                            contentDescription = "질문 추가 이미지",
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
