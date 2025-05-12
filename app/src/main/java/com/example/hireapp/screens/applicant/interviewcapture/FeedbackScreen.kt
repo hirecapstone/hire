@@ -1,19 +1,21 @@
 package com.example.hireapp.screens.applicant.interviewcapture
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 @Composable
 fun FeedbackScreen(navController: NavController, sessionId: String) {
@@ -24,6 +26,9 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showTitleDialog by remember { mutableStateOf(false) }
     var videoTitle by remember { mutableStateOf("") }
+
+    // Compose에서 context를 가져오기
+    val context = LocalContext.current
 
     // Firestore에서 데이터 가져오기
     LaunchedEffect(sessionId) {
@@ -54,7 +59,7 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
         return
     }
 
-// 추가: 데이터가 null일 경우 메시지 표시
+    // 추가: 데이터가 null일 경우 메시지 표시
     if (feedbackData == null && mediapipeData == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("피드백 데이터를 가져오지 못했습니다.", style = MaterialTheme.typography.bodyMedium)
@@ -88,7 +93,11 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
             },
             confirmButton = {
                 Button(onClick = {
-                    // 제목 저장 로직 수행 후 홈으로 이동
+                    if (videoTitle.isBlank()) {
+                        // Compose 환경에서 Toast 메시지를 표시하기 위해 LocalContext를 사용
+                        Toast.makeText(context, "제목을 입력해주세요.", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
                     saveTitleAndNavigate(navController, sessionId, videoTitle)
                     showTitleDialog = false
                 }) {

@@ -191,29 +191,20 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 permissionLauncher
             )
         }
-    }
 
+        // 로그 추가: currentIndex, phase, sessionId 상태 확인
+        Log.d("QuestionScreen", "currentIndex: $currentIndex, phase: $phase, sessionId: $sessionId")
+
+        if (phase == "done") {
+            isTimerRunning = false // 타이머 종료
+            Log.d("QuestionScreen", "Navigating to feedback_screen with sessionId: $sessionId")
+            navController.navigate("feedback_screen/$sessionId") // FeedbackScreen으로 이동
+        }
+    }
 
 // 타이머
     LaunchedEffect(isTimerRunning) {
         if (isTimerRunning) {
-            if (phase == "answer" && hasPermission) {
-                startRecording(
-                    context,
-                    videoCapture.value,
-                    recording,
-                    recordedFiles,
-                    sessionId,
-                    currentIndex,
-                    onError = {
-                        errorOccurred = true
-                        showRetryDialog = true
-                        isTimerRunning = false
-                    },
-                    permissionLauncher
-                )
-            }
-
             while (timeLeft > 0) {
                 delay(1000L)
                 timeLeft--
@@ -234,6 +225,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 )
             }
 
+            // 타이머 종료 후 단계 업데이트
             if (phase == "prepare") {
                 phase = "answer"
             } else {
@@ -242,8 +234,6 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                     phase = "prepare"
                 } else {
                     phase = "done"
-                    Log.d("QuestionScreen", "currentIndex: $currentIndex, phase: $phase, sessionId: $sessionId")
-                    navController.navigate("feedback_screen/$sessionId") // FeedbackScreen으로 이동
                 }
             }
         }
@@ -334,7 +324,11 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                             currentIndex++
                             phase = "prepare"
                         } else {
-                            showTitleDialog = true
+                            // 마지막 질문일 경우 즉시 피드백 화면으로 전환
+                            isTimerRunning = false // 타이머 중지
+                            phase = "done"
+                            Log.d("QuestionScreen", "Navigating to feedback_screen with sessionId: $sessionId")
+                            navController.navigate("feedback_screen/$sessionId")
                         }
                     }
                 },
