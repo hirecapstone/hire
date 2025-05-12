@@ -38,6 +38,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeApplScreen(navController: NavController) {
     var videoList by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
@@ -114,6 +115,27 @@ fun HomeApplScreen(navController: NavController) {
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = com.example.hireapp.R.drawable.hire),
+                            contentDescription = "앱 로고",
+                            modifier = Modifier
+                                .size(60.dp)
+                                .padding(top = 4.dp)
+                                .padding(bottom = 4.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("하이어", style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
+            )
+        },
         bottomBar = { BottomNavigationAppl(navController) }
     ) { innerPadding ->
         Column(
