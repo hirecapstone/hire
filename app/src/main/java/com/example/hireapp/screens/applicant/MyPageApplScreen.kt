@@ -17,13 +17,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.models.MyPageVideoItem
@@ -61,7 +67,7 @@ fun MyPageApplScreen(navController: NavController) {
     // 인터뷰 목록 불러올 변수
     var videoList by remember { mutableStateOf<List<MyPageVideoItem>>(emptyList()) }
     // 공개 비공개 드롭다운
-    var expanded by remember { mutableStateOf(false) }
+    var expandedMenuId by remember { mutableStateOf(false) }
 
     if (user == null) {
         Toast.makeText(context, "로그인 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -277,70 +283,100 @@ fun MyPageApplScreen(navController: NavController) {
                     )
                 }
 
-                // 영상 목록 표시
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(videoList) { video ->
-                        Card(
+                VideoListScreen(
+                    videos = videoList,
+                    onTogglePublic = { videoId, newStatus ->
+                        videoList = videoList.map {
+                            if (it.id == videoId) it.copy(isPublic = newStatus) else it
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 영상 목록을 띄우는 함수
+ */
+@Composable
+fun VideoListScreen(
+    videos: List<MyPageVideoItem>,
+    onTogglePublic: (String, Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    var expandedMenuId by remember { mutableStateOf<String?>(null) }
+
+    LazyColumn(modifier = Modifier.fillMaxWidth()) {
+        items(videos) { video ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = video.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(text = "촬영일: ${video.date}")
+                        Text(text = "대분류: ${video.major} / 소분류: ${video.minor}")
+                        Text(text = if (video.isPublic) "공개" else "비공개")
+                    }
+
+                    var iconButtonCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .wrapContentSize()
+                    ) {
+                        IconButton(
+                            onClick = {
+                                expandedMenuId = if (expandedMenuId == video.id) null else video.id
+                            },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+                                .onGloballyPositioned {
+                                    iconButtonCoordinates = it
+                                }
                         ) {
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = video.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(text = "촬영일: ${video.date}")
-                                    Text(text = "대분류: ${video.major} / 소분류: ${video.minor}")
-                                    Text(text = if (video.isPublic) "공개" else "비공개")
-                                }
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "더보기 메뉴"
+                            )
+                        }
 
-                                IconButton(
-                                    onClick = { expanded = true },
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.MoreVert,
-                                        contentDescription = "더보기 메뉴"
-                                    )
-                                }
-
-                                DropdownMenu(
-                                    expanded = expanded,
-                                    onDismissRequest = { expanded = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(if (video.isPublic) "비공개로 설정" else "공개로 설정") },
-                                        onClick = {
-                                            expanded = false
-                                            val newStatus = !video.isPublic
-                                            FirebaseFirestore.getInstance()
-                                                .collection("interview")
-                                                .document(video.id)
-                                                .update("public", newStatus)
-                                                .addOnSuccessListener {
-                                                    videoList = videoList.map {
-                                                        if (it.id == video.id) it.copy(isPublic = newStatus) else it
-                                                    }
-                                                }
-                                                .addOnFailureListener {
-                                                    Toast.makeText(
-                                                        context,
-                                                        "공개 상태 변경에 실패했습니다.",
-                                                        Toast.LENGTH_SHORT
-                                                    ).show()
-                                                }
+                        DropdownMenu(
+                            expanded = expandedMenuId == video.id,
+                            onDismissRequest = { expandedMenuId = null },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd) // 이게 핵심
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(if (video.isPublic) "비공개로 설정" else "공개로 설정") },
+                                onClick = {
+                                    expandedMenuId = null
+                                    val newStatus = !video.isPublic
+                                    FirebaseFirestore.getInstance()
+                                        .collection("interview")
+                                        .document(video.id)
+                                        .update("public", newStatus)
+                                        .addOnSuccessListener {
+                                            onTogglePublic(video.id, newStatus)
                                         }
-                                    )
+                                        .addOnFailureListener {
+                                            Toast.makeText(
+                                                context,
+                                                "공개 상태 변경에 실패했습니다.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                 }
-                            }
+                            )
                         }
                     }
                 }

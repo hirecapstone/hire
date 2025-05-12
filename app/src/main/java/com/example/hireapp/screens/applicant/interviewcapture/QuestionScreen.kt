@@ -38,7 +38,6 @@ import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
-import androidx.compose.foundation.Image
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.ActivityCompat
 import androidx.navigation.compose.rememberNavController
@@ -54,7 +53,6 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import androidx.camera.core.Preview as CameraPreview
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import com.example.hireapp.util.LoadingState
 import com.google.firebase.firestore.SetOptions
 
@@ -66,7 +64,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
-    val previewHeight = screenWidth * 7 / 5
+    val previewHeight = screenWidth * 3 / 4
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     var aiQuestions by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -234,8 +232,8 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 // → onAnalysis 콜백으로 실시간 결과 받기
                 onAnalysis = { expr, post, gz ->
                     expression = expr
-                    posture = post
-                    gaze = gz
+                    posture    = post
+                    gaze       = gz
                 }
             )
             // 분석 결과 텍스트
@@ -247,7 +245,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment   = Alignment.CenterVertically
                 ) {
                     Text(
                         text = expression,
@@ -277,57 +275,15 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 질문 번호 + 아이콘
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = com.example.hireapp.R.drawable.document),
-                    contentDescription = "질문",
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    "질문 ${currentIndex + 1} / ${allQuestions.value.size}",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 질문 내용 + GPT 아이콘
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = com.example.hireapp.R.drawable.gpt),
-                    contentDescription = "질문 내용",
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    allQuestions.value[currentIndex],
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // 남은 시간 + 시계 아이콘
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = com.example.hireapp.R.drawable.time),
-                    contentDescription = "남은 시간",
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text("남은 시간: ${timeLeft}초")
-            }
-
+            Text(
+                "질문 ${currentIndex + 1} / ${allQuestions.value.size}",
+                style = MaterialTheme.typography.titleMedium
+            )
             Spacer(modifier = Modifier.height(12.dp))
-
+            Text(allQuestions.value[currentIndex], style = MaterialTheme.typography.bodyLarge)
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("남은 시간: ${timeLeft}초")
+            Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = {
                     if (phase == "prepare") {
