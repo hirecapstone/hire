@@ -166,7 +166,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
         }
     }
 
-    // 질문 단계별 타이머 및 녹화
+    // 타이머 및 녹화/분석 로직 통합
     LaunchedEffect(phase, currentIndex) {
         isTimerRunning = phase == "prepare" || phase == "answer"
         timeLeft = if (phase == "prepare") 30 else 60
@@ -197,9 +197,27 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     // 타이머
     LaunchedEffect(isTimerRunning) {
         if (isTimerRunning) {
+            if (phase == "answer" && hasPermission) {
+                startRecording(
+                    context,
+                    videoCapture.value,
+                    recording,
+                    recordedFiles,
+                    sessionId,
+                    currentIndex,
+                    onError = {
+                        errorOccurred = true
+                        showRetryDialog = true
+                        isTimerRunning = false
+                    },
+                    permissionLauncher
+                )
+            }
+
             while (timeLeft > 0) {
                 delay(1000L)
                 timeLeft--
+
                 if (phase == "answer") {
                     answerElapsed++
                     if (expression == "웃음") smileTimestamps.add(answerElapsed)
@@ -210,7 +228,6 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
             if (phase == "answer") {
                 stopRecording(recording)
-
                 saveMediapipeResult(
                     db, sessionId, currentIndex,
                     smileTimestamps, badPostureTimestamps, notFrontTimestamps
@@ -219,12 +236,14 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
             if (phase == "prepare") {
                 phase = "answer"
-            } else if (currentIndex < allQuestions.value.lastIndex) {
-                currentIndex++
-                phase = "prepare"
             } else {
-                phase = "done"
-                showTitleDialog = true
+                if (currentIndex < aiQuestions.lastIndex) {
+                    currentIndex++
+                    phase = "prepare"
+                } else {
+                    phase = "done"
+                    showTitleDialog = true
+                }
             }
         }
     }
