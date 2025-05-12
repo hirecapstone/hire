@@ -62,7 +62,18 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
     // 추가: 데이터가 null일 경우 메시지 표시
     if (feedbackData == null && mediapipeData == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("피드백 데이터를 가져오지 못했습니다.", style = MaterialTheme.typography.bodyMedium)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("피드백 데이터를 가져오지 못했습니다.", style = MaterialTheme.typography.bodyMedium)
+
+                // 여기에 Button을 추가
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { navController.navigate("home") }, // 홈 화면으로 이동
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text("홈 화면으로 돌아가기")
+                }
+            }
         }
         return
     }
