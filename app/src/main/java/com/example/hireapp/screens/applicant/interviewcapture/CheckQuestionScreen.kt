@@ -44,6 +44,8 @@ import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.storage.FirebaseStorage
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -371,12 +373,15 @@ fun CheckQuestionScreen(navController: NavController) {
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        val storageRef = FirebaseStorage.getInstance().reference
-                        recordedFiles.forEachIndexed { idx, file ->
-                            val uri = Uri.fromFile(file)
-                            val ref = storageRef.child("videos/$sessionId/${sessionId}_q${idx+1}.mp4")
-                            ref.putFile(uri)
-                        }
+                        uploadResults(
+                            db               = db,
+                            auth             = FirebaseAuth.getInstance(),
+                            sessionId        = sessionId,
+                            questions        = questions,
+                            videoTitle       = videoTitle,
+                            recordedFiles    = recordedFiles,
+                            navController    = navController
+                        )
                         showTitleDialog = false
                         navController.navigate(Screen.HomeAppl.route)
                     }) {
@@ -419,6 +424,62 @@ private fun saveMediapipeResult(
         .addOnFailureListener { e -> Log.e("Mediapipe","저장 실패", e) }
 }
 
+private fun uploadResults(
+    db: FirebaseFirestore,
+    auth: FirebaseAuth,
+    sessionId: String,
+    questions: List<String>,
+    videoTitle: String,
+    recordedFiles: List<File>,
+    navController: NavController
+) {
+    val storageRef = FirebaseStorage.getInstance().reference
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            // 1) 동영상 업로드
+            val videoUrls = mutableListOf<String>()
+            recordedFiles.forEachIndexed { idx, file ->
+                val uri      = Uri.fromFile(file)
+                val videoRef = storageRef.child("videos/$sessionId/${sessionId}_q${idx+1}.mp4")
+                videoRef.putFile(uri).await()
+                videoUrls += videoRef.downloadUrl.await().toString()
+            }
+
+            // 2) mediapipe 데이터 읽기
+            val mediapipeData = db.collection("interview_mediapipe")
+                .document(sessionId)
+                .get()
+                .await()
+                .data
+                ?: emptyMap<String, Any>()
+
+            // 3) feedback 참조 저장
+            val feedbackRef = db.collection("interview_feedback").document(sessionId)
+
+            // 4) 인터뷰 문서 저장
+            val videoData = mapOf(
+                "question" to questions,
+                "title" to videoTitle,
+                "uploadTime" to FieldValue.serverTimestamp(),
+                "user" to auth.currentUser?.uid,
+                "videos" to videoUrls.map { mapOf("fileUrl" to it) },
+                "mediapipe" to mediapipeData,
+                "feedback" to feedbackRef,
+                "public" to true
+            )
+            db.collection("interview")
+                .document(sessionId)
+                .set(videoData, SetOptions.merge())
+                .await()
+
+            withContext(Dispatchers.Main) {
+                navController.navigate(Screen.HomeAppl.route)
+            }
+        } catch (e: Exception) {
+            Log.e("UploadError", "업로드 실패", e)
+        }
+    }
+}
 @Preview(showBackground = true)
 @Composable
 fun PreviewCheckQuestionScreen() {
