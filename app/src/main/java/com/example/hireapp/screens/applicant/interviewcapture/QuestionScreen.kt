@@ -53,7 +53,6 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import androidx.camera.core.Preview as CameraPreview
 import androidx.compose.ui.graphics.Color
-import com.example.hireapp.util.LoadingState
 import com.google.firebase.firestore.SetOptions
 
 @Composable
@@ -87,7 +86,6 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                             val questions = document.get("questions") as? List<String>
                             questions ?: emptyList()
                         }
-                        LoadingState.hide()
                         Log.d("FirestoreSuccess", "질문 로드 성공: $aiQuestions")
                     } else {
                         Log.w("FirestoreWarning", "해당 세션 ID에 대한 질문이 없습니다.")
@@ -128,7 +126,16 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
     // Firestore 질문 로드 상태 확인
     if (aiQuestions.isEmpty()) {
-        LoadingState.show("질문을 생성 중입니다.")
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("질문을 생성 중입니다.", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
         return
     }
 
@@ -161,13 +168,35 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
     // 타이머 및 녹화/분석 로직 통합
     LaunchedEffect(phase, currentIndex) {
-        if (phase == "prepare" || phase == "answer") {
-            timeLeft = if (phase == "prepare") 30 else 60
+        isTimerRunning = phase == "prepare" || phase == "answer"
+        timeLeft = if (phase == "prepare") 30 else 60
+
+        if (phase == "answer" && hasPermission) {
             answerElapsed = 0
             smileTimestamps.clear()
             badPostureTimestamps.clear()
             notFrontTimestamps.clear()
+            startRecording(
+                context,
+                videoCapture.value,
+                recording,
+                recordedFiles,
+                sessionId,
+                currentIndex,
+                onError = {
+                    errorOccurred = true
+                    showRetryDialog = true
+                    isTimerRunning = false
+                },
+                permissionLauncher
+            )
+        }
+    }
 
+
+    // 타이머
+    LaunchedEffect(isTimerRunning) {
+        if (isTimerRunning) {
             if (phase == "answer" && hasPermission) {
                 startRecording(
                     context,
@@ -177,7 +206,9 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                     sessionId,
                     currentIndex,
                     onError = {
-                        // 오류 처리
+                        errorOccurred = true
+                        showRetryDialog = true
+                        isTimerRunning = false
                     },
                     permissionLauncher
                 )
@@ -186,11 +217,12 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             while (timeLeft > 0) {
                 delay(1000L)
                 timeLeft--
+
                 if (phase == "answer") {
                     answerElapsed++
-                    if (expression == "웃음")      smileTimestamps.add(answerElapsed)
-                    if (posture == "구부정")       badPostureTimestamps.add(answerElapsed)
-                    if (gaze == "정면아님")          notFrontTimestamps.add(answerElapsed)
+                    if (expression == "웃음") smileTimestamps.add(answerElapsed)
+                    if (posture == "구부정") badPostureTimestamps.add(answerElapsed)
+                    if (gaze == "정면아님") notFrontTimestamps.add(answerElapsed)
                 }
             }
 
@@ -591,14 +623,6 @@ fun uploadVideoAndSave(
 
             val questions = latestQuestionRef.get("questions") as? List<String> ?: listOf()
 
-            // — mediapipe 데이터 가져오기 —
-            val mediapipeSnap = db.collection("interview_mediapipe")
-                .document(sessionId)
-                .get()
-                .await()
-            val mediapipeData = mediapipeSnap.data ?: emptyMap<String, Any>()
-
-            val feedbackRef =db.collection("interview_feedback").document(sessionId)
             // Firestore에 저장할 데이터 생성
             val videoData = hashMapOf(
                 "category" to hashMapOf(
@@ -610,8 +634,6 @@ fun uploadVideoAndSave(
                 "uploadTime" to FieldValue.serverTimestamp(),
                 "user" to userUUID,
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
-                "mediapipe"  to mediapipeData,
-                "feedback"  to feedbackRef,
                 "public" to true
             )
 
