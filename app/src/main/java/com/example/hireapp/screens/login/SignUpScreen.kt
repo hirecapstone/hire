@@ -81,7 +81,7 @@ fun SignUpScreen(navController: NavController) {
                     ) {
                         Image(
                             painter = painterResource(id = com.example.hireapp.R.drawable.speak),
-                            contentDescription = "면접자 아이콘",
+                            contentDescription = "면접자 이미지",
                             modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -110,7 +110,7 @@ fun SignUpScreen(navController: NavController) {
                     ) {
                         Image(
                             painter = painterResource(id = com.example.hireapp.R.drawable.hear),
-                            contentDescription = "면접관 아이콘",
+                            contentDescription = "면접관 이미지",
                             modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -168,7 +168,7 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
             ) {
                 Image(
                     painter = painterResource(id = com.example.hireapp.R.drawable.register),
-                    contentDescription = "등록 아이콘",
+                    contentDescription = "등록 이미지",
                     modifier = Modifier.size(36.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))

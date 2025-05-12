@@ -283,7 +283,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             ) {
                 Image(
                     painter = painterResource(id = com.example.hireapp.R.drawable.document),
-                    contentDescription = "질문",
+                    contentDescription = "질문 이미지",
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
@@ -301,7 +301,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             ) {
                 Image(
                     painter = painterResource(id = com.example.hireapp.R.drawable.gpt),
-                    contentDescription = "질문 내용",
+                    contentDescription = "GPT 이미지",
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
@@ -319,7 +319,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             ) {
                 Image(
                     painter = painterResource(id = com.example.hireapp.R.drawable.time),
-                    contentDescription = "남은 시간",
+                    contentDescription = "남은 시간 이미지",
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
