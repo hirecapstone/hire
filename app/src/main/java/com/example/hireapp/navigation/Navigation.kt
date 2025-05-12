@@ -12,6 +12,7 @@ import com.example.hireapp.screens.login.*
 import com.example.hireapp.screens.applicant.*
 import com.example.hireapp.screens.applicant.interviewcapture.CaptureScreen
 import com.example.hireapp.screens.applicant.interviewcapture.QuestionScreen
+import com.example.hireapp.screens.applicant.interviewcapture.FeedbackScreen
 import com.example.hireapp.screens.interviewer.*
 import com.example.hireapp.screens.VideoDetailScreen
 import com.example.hireapp.screens.applicant.interviewcapture.CaptureOptionScreen
@@ -61,6 +62,16 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
             val sub = backStackEntry.arguments?.getString("sub") ?: return@composable
 
             QuestionScreen(navController = navController, sessionId = sessionId, major = major, sub = sub)
+        }
+
+        // 피드백 화면 추가 (세션 ID 필요)
+        composable(
+            route = "feedback_screen/{sessionId}",
+            arguments = listOf(navArgument("sessionId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@composable
+
+            FeedbackScreen(navController = navController, sessionId = sessionId)
         }
 
         // 영상 상세 보기 (댓글 포함)

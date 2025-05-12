@@ -194,7 +194,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     }
 
 
-    // 타이머
+// 타이머
     LaunchedEffect(isTimerRunning) {
         if (isTimerRunning) {
             if (phase == "answer" && hasPermission) {
@@ -237,12 +237,13 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             if (phase == "prepare") {
                 phase = "answer"
             } else {
-                if (currentIndex < aiQuestions.lastIndex) {
+                if (currentIndex < allQuestions.value.lastIndex) {
                     currentIndex++
                     phase = "prepare"
                 } else {
                     phase = "done"
-                    showTitleDialog = true
+                    Log.d("QuestionScreen", "currentIndex: $currentIndex, phase: $phase, sessionId: $sessionId")
+                    navController.navigate("feedback_screen/$sessionId") // FeedbackScreen으로 이동
                 }
             }
         }
@@ -298,6 +299,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             }
         }
 
+        // 화면 구성
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -316,6 +318,8 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             Spacer(modifier = Modifier.height(24.dp))
             Text("남은 시간: ${timeLeft}초")
             Spacer(modifier = Modifier.height(32.dp))
+
+            // 기존 "준비 완료" 또는 "답변 완료" 버튼
             Button(
                 onClick = {
                     if (phase == "prepare") {
@@ -339,43 +343,6 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 Text(if (phase == "prepare") "준비 완료" else "답변 완료")
             }
         }
-    }
-
-    // 제목 작성 다이얼로그
-    if (showTitleDialog) {
-        AlertDialog(
-            onDismissRequest = {},
-            title = { Text("영상 제목 작성") },
-            text = {
-                Column {
-                    Text("영상의 제목을 작성해주세요:")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = videoTitle,
-                        onValueChange = { videoTitle = it },
-                        label = { Text("제목 입력") }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    uploadVideoAndSave(recordedFiles, sessionId, major, sub, videoTitle, navController)
-                    navController.navigate(Screen.HomeAppl.route)
-                    showTitleDialog = false
-                }) {
-                    Text("저장")
-                }
-            },
-            dismissButton = {
-                Button(onClick = {
-                    navController.navigate(Screen.HomeAppl.route)
-                    showTitleDialog = false
-
-                }) {
-                    Text("취소")
-                }
-            }
-        )
     }
 }
 
