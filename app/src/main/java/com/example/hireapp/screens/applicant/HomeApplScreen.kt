@@ -125,7 +125,6 @@ fun HomeApplScreen(navController: NavController) {
                             modifier = Modifier
                                 .size(60.dp)
                                 .padding(top = 4.dp)
-                                .padding(bottom = 4.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("하이어", style = MaterialTheme.typography.titleLarge)
