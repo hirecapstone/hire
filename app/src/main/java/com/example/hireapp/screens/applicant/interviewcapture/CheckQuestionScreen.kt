@@ -296,7 +296,7 @@ fun CheckQuestionScreen(navController: NavController) {
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.65f)
+                    .fillMaxHeight(0.7f)
             ) {
                 when {
                     isInPreview -> Box(
@@ -353,7 +353,7 @@ fun CheckQuestionScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .fillMaxHeight(0.35f)
+                    .fillMaxHeight(0.3f)
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 24.dp),
                 verticalArrangement = Arrangement.Bottom,
