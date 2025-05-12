@@ -29,7 +29,10 @@ import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
@@ -293,21 +296,30 @@ fun CheckQuestionScreen(navController: NavController) {
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .fillMaxHeight(0.77f)
             ) {
                 when {
-                    isInPreview -> Box(Modifier.matchParentSize()) { }
+                    isInPreview -> Box(
+                        Modifier
+                            .fillMaxWidth()
+                    ) { }
+
                     !hasPermission -> Box(
                         Modifier
-                            .matchParentSize()
+                            .fillMaxWidth()
                             .padding(24.dp),
                         contentAlignment = Alignment.Center
-                    ) { Text("카메라 권한 필요") }
+                    ) {
+                        Text("카메라 권한 필요")
+                    }
+
                     else -> AndroidView(
                         factory = { previewView },
-                        modifier = Modifier.matchParentSize()
+                        modifier = Modifier
+                            .fillMaxWidth()
                     )
                 }
+
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -336,23 +348,69 @@ fun CheckQuestionScreen(navController: NavController) {
                     }
                 }
             }
+
             Column(
-                Modifier
+                modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .weight(1f)
+                    .fillMaxHeight(0.23f)
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.Bottom,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("질문 ${currentIndex+1}/${questions.size}",
-                    style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                Text(questions.getOrNull(currentIndex) ?: "",
-                    style = MaterialTheme.typography.bodyLarge)
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    if (isReady) "준비시간: $timer 초" else "남은 시간: $timer 초",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.document),
+                        contentDescription = "질문 이미지",
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        "질문 ${currentIndex + 1}/${questions.size}",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.write),
+                        contentDescription = "입력한 텍스트 이미지",
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp)) // 수정: height → width
+                    Text(
+                        questions.getOrNull(currentIndex) ?: "",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.time),
+                        contentDescription = "남은 시간 이미지",
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp)) // 수정: height → width
+                    Text(
+                        if (isReady) "준비시간: $timer 초" else "남은 시간: $timer 초",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
             }
+        }
         }
         if (showTitleDialog) {
             AlertDialog(
@@ -400,7 +458,7 @@ fun CheckQuestionScreen(navController: NavController) {
             )
         }
     }
-}
+
 private fun saveMediapipeResult(
     db: FirebaseFirestore,
     sessionId: String,
