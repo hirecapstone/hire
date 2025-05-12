@@ -66,7 +66,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
-    val previewHeight = screenWidth * 7 / 5
+    val previewHeight = screenWidth * 6 / 5
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     var aiQuestions by remember { mutableStateOf<List<String>>(emptyList()) }

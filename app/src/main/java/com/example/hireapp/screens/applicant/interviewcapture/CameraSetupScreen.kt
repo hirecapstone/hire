@@ -29,7 +29,7 @@ fun CameraSetupScreen(onNext: () -> Unit) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
-    val previewHeight = screenWidth * 7 / 5
+    val previewHeight = screenWidth * 6 / 5
 
     var hasPermission by remember { mutableStateOf(false) }
 
