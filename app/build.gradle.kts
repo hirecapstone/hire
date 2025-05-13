@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-    // Add the Google services Gradle plugin
+    // Google services Gradle plugin
     id("com.google.gms.google-services")
 }
 
@@ -83,11 +83,10 @@ dependencies {
     implementation("androidx.camera:camera-extensions:$cameraxVersion")
 
     // Firebase dependencies
-    implementation(platform("com.google.firebase:firebase-bom:33.11.0"))
+    implementation(platform("com.google.firebase:firebase-bom:33.11.0")) // 최신 BOM
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-database-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-installations-ktx") // 추가된 부분
 
@@ -106,7 +105,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("com.google.gms:google-services:4.4.2")
+        classpath("com.google.gms:google-services:4.3.15") // 최신 버전으로 업데이트
     }
 }
 
