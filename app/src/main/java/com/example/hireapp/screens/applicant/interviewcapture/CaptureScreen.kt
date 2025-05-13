@@ -35,7 +35,12 @@ fun CaptureScreen(navController: NavController) {
                     currentStep.value = 2
                 })
                 2 -> WarningScreen(onNext = { currentStep.value = 3 })
-                3 -> CameraSetupScreen(onNext = { currentStep.value = 4 })
+                3 -> CameraSetupScreen(
+                    navController = navController,
+                    fromInsert = false,
+                    questionsJson = "[]",
+                    onNext = { currentStep.value = 4 }
+                )
                 4 -> QuestionScreen(navController = navController, sessionId = sessionId, major = major, sub = sub) // major, sub, sessionId 전달
             }
         }

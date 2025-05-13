@@ -26,6 +26,9 @@ import com.example.hireapp.navigation.Screen
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import com.google.gson.Gson
 
 @Composable
 fun InsertQuestionScreen(navController: NavController) {
@@ -75,11 +78,9 @@ fun InsertQuestionScreen(navController: NavController) {
                     Icon(Icons.Default.Add, contentDescription = "질문 추가")
                 }
                 Button(onClick = {
-                    // 질문 리스트를 다음 화면으로 전달
-                    navController.currentBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("questions", ArrayList(questionList))
-                    navController.navigate(Screen.CheckQuestion.route)
+                    val gson = Gson()
+                    val questionsJson = URLEncoder.encode(gson.toJson(questionList), StandardCharsets.UTF_8.toString())
+                    navController.navigate("${Screen.Warning.route}?fromInsert=true&questions=$questionsJson")
                 }) {
                     Text("다음")
                 }

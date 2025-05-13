@@ -11,7 +11,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun WarningScreen(onNext: () -> Unit) {
+fun WarningScreen(fromInsert: Boolean = false, onNext: () -> Unit) {
     var checked by remember { mutableStateOf(false) }
 
     Column(
@@ -21,12 +21,8 @@ fun WarningScreen(onNext: () -> Unit) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "주의사항", // 주의사항 제목
-            style = MaterialTheme.typography.titleMedium
-        )
+        Text("주의사항", style = MaterialTheme.typography.titleMedium)
 
-        // 여러 문장의 주의사항을 출력
         Text("1. 조명이 잘 맞춰져 있는지 확인하세요.")
         Spacer(modifier = Modifier.height(8.dp))
         Text("2. 배경이 깔끔한지 확인하세요.")
@@ -51,10 +47,7 @@ fun WarningScreen(onNext: () -> Unit) {
                 .fillMaxWidth()
                 .padding(bottom = 16.dp)
         ) {
-            Checkbox(
-                checked = checked,
-                onCheckedChange = { checked = it }
-            )
+            Checkbox(checked = checked, onCheckedChange = { checked = it })
             Text("주의사항을 모두 확인했습니다.")
         }
 
@@ -73,5 +66,5 @@ fun WarningScreen(onNext: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun WarningScreenPreview() {
-    WarningScreen(onNext = {})
+    WarningScreen(fromInsert = false, onNext = {})
 }

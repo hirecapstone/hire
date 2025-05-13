@@ -20,10 +20,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.google.gson.Gson
 import androidx.camera.core.Preview as CameraPreview
 
 @Composable
-fun CameraSetupScreen(onNext: () -> Unit) {
+fun CameraSetupScreen(
+    navController: NavController,
+    fromInsert: Boolean = false,
+    questionsJson: String = "[]",
+    onNext: () -> Unit = {}
+) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
@@ -38,7 +46,6 @@ fun CameraSetupScreen(onNext: () -> Unit) {
                 permissions[Manifest.permission.RECORD_AUDIO] == true
     }
 
-    // 카메라, 녹음 권한 요청
     LaunchedEffect(Unit) {
         if (
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
@@ -81,17 +88,25 @@ fun CameraSetupScreen(onNext: () -> Unit) {
         }
 
         Button(
-            onClick = onNext,
+            onClick = {
+                if (fromInsert) {
+                    val gson = Gson()
+                    val questions = gson.fromJson(questionsJson, Array<String>::class.java).toList()
+                    navController.currentBackStackEntry?.savedStateHandle?.set("questions", ArrayList(questions))
+                    navController.navigate("check_question")
+                } else {
+                    onNext()
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            enabled = hasPermission // 권한 없으면 버튼 비활성화
+            enabled = hasPermission
         ) {
             Text("촬영 시작")
         }
     }
 }
-
 
 @Composable
 fun CameraPreviewView(
@@ -113,7 +128,6 @@ fun CameraPreviewView(
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
 
-            // 전면 카메라 사용
             val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
             try {
@@ -126,7 +140,6 @@ fun CameraPreviewView(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-
         }, ContextCompat.getMainExecutor(context))
     }
 }
@@ -134,5 +147,9 @@ fun CameraPreviewView(
 @Preview(showBackground = true)
 @Composable
 fun CameraSetupScreenPreview() {
-    CameraSetupScreen(onNext = {})
+    CameraSetupScreen(
+        navController = rememberNavController(),
+        fromInsert = false,
+        questionsJson = "[]"
+    )
 }
