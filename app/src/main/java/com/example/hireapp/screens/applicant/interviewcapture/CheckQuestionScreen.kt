@@ -449,7 +449,7 @@ fun CheckQuestionScreen(
                             navController    = navController
                         )
                         showTitleDialog = false
-                        navController.navigate(Screen.HomeAppl.route)
+                        navController.navigate("${Screen.ResultScreen.route}/$sessionId")
                     }) {
                         Text("저장")
                     }
@@ -545,7 +545,7 @@ private fun uploadResults(
                 .await()
 
             withContext(Dispatchers.Main) {
-                navController.navigate(Screen.HomeAppl.route)
+                navController.navigate("${Screen.ResultScreen.route}/$sessionId")
             }
         } catch (e: Exception) {
             Log.e("UploadError", "업로드 실패", e)

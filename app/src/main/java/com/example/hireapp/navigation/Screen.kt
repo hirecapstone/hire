@@ -18,7 +18,7 @@ sealed class Screen(val route: String) {
     object CheckQuestion : Screen("check_question")
     object Warning : Screen("warning")
     object CameraSetup : Screen("camera_setup")
-
+    object ResultScreen : Screen("result_screen")
     // 면접관 (Interviewer)
     object HomeIntr : Screen("home_intr")
     object MyPageIntr : Screen("mypage_intr")

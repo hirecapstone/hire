@@ -372,7 +372,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             confirmButton = {
                 Button(onClick = {
                     uploadVideoAndSave(recordedFiles, sessionId, major, sub, videoTitle, navController)
-                    navController.navigate(Screen.HomeAppl.route)
+                    navController.navigate("${Screen.ResultScreen.route}/$sessionId")
                     showTitleDialog = false
                 }) {
                     Text("저장")

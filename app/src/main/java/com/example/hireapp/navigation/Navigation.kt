@@ -19,6 +19,7 @@ import com.example.hireapp.screens.applicant.interviewcapture.Capture2Screen
 import com.example.hireapp.screens.applicant.interviewcapture.CaptureOptionScreen
 import com.example.hireapp.screens.applicant.interviewcapture.CheckQuestionScreen
 import com.example.hireapp.screens.applicant.interviewcapture.InsertQuestionScreen
+import com.example.hireapp.screens.applicant.interviewcapture.ResultScreen
 import com.example.hireapp.screens.applicant.interviewcapture.WarningScreen
 import com.google.gson.Gson
 
@@ -119,6 +120,16 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
         ) { backStackEntry ->
             val videoId = backStackEntry.arguments?.getString("id") ?: return@composable
             VideoDetailScreen(videoId = videoId, navController = navController)
+        }
+
+        composable(
+            route = "${Screen.ResultScreen.route}/{sessionId}",
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@composable
+            ResultScreen(navController = navController, sessionId = sessionId)
         }
     }
 }
