@@ -514,10 +514,16 @@ private fun uploadResults(
             // 3) feedback 참조 저장
             val feedbackRef = db.collection("interview_feedback").document(sessionId)
 
+            val categoryData = mapOf(
+                "major" to "지정 없음",
+                "sub" to "지정 없음"
+            )
+
             // 4) 인터뷰 문서 저장
             val videoData = mapOf(
                 "question" to questions,
                 "title" to videoTitle,
+                "category" to categoryData,
                 "uploadTime" to FieldValue.serverTimestamp(),
                 "user" to auth.currentUser?.uid,
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
