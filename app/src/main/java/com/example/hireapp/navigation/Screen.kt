@@ -15,6 +15,8 @@ sealed class Screen(val route: String) {
     object CaptureOption : Screen("capture_option")
     object InsertQuestion : Screen("insert_question")
     object CheckQuestion : Screen("check_question")
+    object Warning : Screen("warning")
+    object CameraSetup : Screen("camera_setup")
 
     // 면접관 (Interviewer)
     object HomeIntr : Screen("home_intr")

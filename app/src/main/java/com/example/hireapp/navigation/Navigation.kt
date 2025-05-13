@@ -14,9 +14,12 @@ import com.example.hireapp.screens.applicant.interviewcapture.CaptureScreen
 import com.example.hireapp.screens.applicant.interviewcapture.QuestionScreen
 import com.example.hireapp.screens.interviewer.*
 import com.example.hireapp.screens.VideoDetailScreen
+import com.example.hireapp.screens.applicant.interviewcapture.CameraSetupScreen
 import com.example.hireapp.screens.applicant.interviewcapture.CaptureOptionScreen
 import com.example.hireapp.screens.applicant.interviewcapture.CheckQuestionScreen
 import com.example.hireapp.screens.applicant.interviewcapture.InsertQuestionScreen
+import com.example.hireapp.screens.applicant.interviewcapture.WarningScreen
+import com.google.gson.Gson
 
 @Composable
 fun AppNavHost(navController: NavHostController = rememberNavController(), userType: String? = null) {
@@ -61,6 +64,50 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
             val sub = backStackEntry.arguments?.getString("sub") ?: return@composable
 
             QuestionScreen(navController = navController, sessionId = sessionId, major = major, sub = sub)
+        }
+
+        composable(
+            route = "${Screen.CameraSetup.route}?fromInsert={fromInsert}&questions={questions}",
+            arguments = listOf(
+                navArgument("fromInsert") { defaultValue = "false" },
+                navArgument("questions") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val fromInsert = backStackEntry.arguments?.getString("fromInsert") == "true"
+            val questionsJson = backStackEntry.arguments?.getString("questions") ?: "[]"
+
+            CameraSetupScreen(
+                navController = navController,
+                fromInsert = fromInsert,
+                questionsJson = questionsJson,
+                onNext = {
+                    if (fromInsert) {
+                        val gson = com.google.gson.Gson()
+                        val questions = gson.fromJson(questionsJson, Array<String>::class.java).toList()
+                        navController.currentBackStackEntry?.savedStateHandle?.set("questions", ArrayList(questions))
+                        navController.navigate(Screen.CheckQuestion.route)
+                    } else {
+                        navController.navigate("${Screen.QuestionScreen.route}/sessionId/major/sub")
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = "${Screen.Warning.route}?fromInsert={fromInsert}&questions={questions}",
+            arguments = listOf(
+                navArgument("fromInsert") { defaultValue = "false" },
+                navArgument("questions") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val fromInsert = backStackEntry.arguments?.getString("fromInsert") == "true"
+            val questionsJson = backStackEntry.arguments?.getString("questions") ?: "[]"
+            val gson = Gson()
+            val questions = gson.fromJson(questionsJson, Array<String>::class.java).toList()
+
+            WarningScreen(fromInsert = fromInsert) {
+                navController.navigate("${Screen.CameraSetup.route}?fromInsert=true&questions=$questionsJson")
+            }
         }
 
         // 영상 상세 보기 (댓글 포함)

@@ -33,6 +33,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import com.google.gson.Gson
 
 @Composable
 fun InsertQuestionScreen(navController: NavController) {
@@ -105,10 +108,12 @@ fun InsertQuestionScreen(navController: NavController) {
                 }
                 Button(
                     onClick = {
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("questions", ArrayList(questionList))
-                        navController.navigate(Screen.CheckQuestion.route)
+                        val gson = Gson()
+                        val questionsJson = URLEncoder.encode(
+                            gson.toJson(questionList),
+                            StandardCharsets.UTF_8.toString()
+                        )
+                        navController.navigate("${Screen.Warning.route}?fromInsert=true&questions=$questionsJson")
                     }, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

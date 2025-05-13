@@ -23,9 +23,16 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.camera.core.Preview as CameraPreview
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.google.gson.Gson
 
 @Composable
-fun CameraSetupScreen(onNext: () -> Unit) {
+fun CameraSetupScreen(navController: NavController,
+                      fromInsert: Boolean = false,
+                      questionsJson: String = "[]",
+                      onNext: () -> Unit = {}
+) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
@@ -103,7 +110,16 @@ fun CameraSetupScreen(onNext: () -> Unit) {
         }
 
             Button(
-            onClick = onNext,
+            onClick = {
+                if (fromInsert) {
+                    val gson = Gson()
+                    val questions = gson.fromJson(questionsJson, Array<String>::class.java).toList()
+                    navController.currentBackStackEntry?.savedStateHandle?.set("questions", ArrayList(questions))
+                    navController.navigate("check_question")
+                } else {
+                    onNext()
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
@@ -156,5 +172,8 @@ fun CameraPreviewView(
 @Preview(showBackground = true)
 @Composable
 fun CameraSetupScreenPreview() {
-    CameraSetupScreen(onNext = {})
+    CameraSetupScreen(navController = rememberNavController(),
+        fromInsert = false,
+        questionsJson = "[]"
+    )
 }
