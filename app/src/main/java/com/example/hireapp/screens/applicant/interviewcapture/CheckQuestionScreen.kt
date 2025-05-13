@@ -411,53 +411,63 @@ fun CheckQuestionScreen(navController: NavController) {
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
-        }
-        if (showTitleDialog) {
-            AlertDialog(
-                onDismissRequest = { },
-                title = { Text("영상 제목 작성") },
-                text = {
-                    Column {
-                        Text("영상의 제목을 작성해주세요:")
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = videoTitle,
-                            onValueChange = { videoTitle = it },
-                            placeholder = { Text("제목 입력") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        uploadResults(
-                            db               = db,
-                            auth             = FirebaseAuth.getInstance(),
-                            sessionId        = sessionId,
-                            questions        = questions,
-                            videoTitle       = videoTitle,
-                            recordedFiles    = recordedFiles,
-                            navController    = navController
-                        )
-                        showTitleDialog = false
-                        navController.navigate(Screen.HomeAppl.route)
-                    }) {
-                        Text("저장")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        recordedFiles.clear()
-                        showTitleDialog = false
-                        navController.navigate(Screen.HomeAppl.route)
-                    }) {
-                        Text("취소")
-                    }
-                }
-            )
-        }
     }
+    if (showTitleDialog) {
+        AlertDialog(
+            onDismissRequest = { /* 다이얼로그 닫기 방지 */ },
+            title = { Text("영상 제목 작성") },
+            text = {
+                Column {
+                    Text("영상의 제목을 작성해주세요:")
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = videoTitle,
+                        onValueChange = { videoTitle = it },
+                        placeholder = { Text("제목 입력") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    // 제목 저장 및 Firebase 작업 후 피드백 화면으로 이동
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            uploadResults(
+                                db               = db,
+                                auth             = FirebaseAuth.getInstance(),
+                                sessionId        = sessionId,
+                                questions        = questions,
+                                videoTitle       = videoTitle,
+                                recordedFiles    = recordedFiles
+                            )
+                            withContext(Dispatchers.Main) {
+                                // Firebase 저장 완료 후 피드백 화면으로 이동
+                                showTitleDialog = false
+                                navController.navigate("feedback_screen/$sessionId")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("UploadError", "업로드 중 오류 발생: ${e.message}")
+                        }
+                    }
+                }) {
+                    Text("저장")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    // 취소 시 바로 홈 화면으로 이동
+                    recordedFiles.clear()
+                    showTitleDialog = false
+                    navController.navigate(Screen.HomeAppl.route)
+                }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+}
 
 private fun saveMediapipeResult(
     db: FirebaseFirestore,
@@ -482,62 +492,66 @@ private fun saveMediapipeResult(
         .addOnFailureListener { e -> Log.e("Mediapipe","저장 실패", e) }
 }
 
-private fun uploadResults(
+private suspend fun uploadResults(
     db: FirebaseFirestore,
     auth: FirebaseAuth,
     sessionId: String,
     questions: List<String>,
     videoTitle: String,
-    recordedFiles: List<File>,
-    navController: NavController
+    recordedFiles: List<File>
 ) {
     val storageRef = FirebaseStorage.getInstance().reference
-    CoroutineScope(Dispatchers.IO).launch {
-        try {
-            // 1) 동영상 업로드
-            val videoUrls = mutableListOf<String>()
-            recordedFiles.forEachIndexed { idx, file ->
-                val uri      = Uri.fromFile(file)
-                val videoRef = storageRef.child("videos/$sessionId/${sessionId}_q${idx+1}.mp4")
-                videoRef.putFile(uri).await()
-                videoUrls += videoRef.downloadUrl.await().toString()
+    try {
+        // 1) 동영상 업로드
+        val videoUrls = mutableListOf<String>()
+        for ((idx, file) in recordedFiles.withIndex()) {
+            if (!file.exists()) {
+                Log.e("UploadError", "파일이 존재하지 않습니다: ${file.absolutePath}")
+                continue
             }
 
-            // 2) mediapipe 데이터 읽기
-            val mediapipeData = db.collection("interview_mediapipe")
-                .document(sessionId)
-                .get()
-                .await()
-                .data
-                ?: emptyMap<String, Any>()
-
-            // 3) feedback 참조 저장
-            val feedbackRef = db.collection("interview_feedback").document(sessionId)
-
-            // 4) 인터뷰 문서 저장
-            val videoData = mapOf(
-                "question" to questions,
-                "title" to videoTitle,
-                "uploadTime" to FieldValue.serverTimestamp(),
-                "user" to auth.currentUser?.uid,
-                "videos" to videoUrls.map { mapOf("fileUrl" to it) },
-                "mediapipe" to mediapipeData,
-                "feedback" to feedbackRef,
-                "public" to true
-            )
-            db.collection("interview")
-                .document(sessionId)
-                .set(videoData, SetOptions.merge())
-                .await()
-
-            withContext(Dispatchers.Main) {
-                navController.navigate(Screen.HomeAppl.route)
-            }
-        } catch (e: Exception) {
-            Log.e("UploadError", "업로드 실패", e)
+            val uri = Uri.fromFile(file)
+            val videoRef = storageRef.child("videos/$sessionId/${sessionId}_q${idx + 1}.mp4")
+            Log.d("UploadFile", "파일 업로드 시작: ${file.name}")
+            videoRef.putFile(uri).await()
+            val downloadUrl = videoRef.downloadUrl.await()
+            videoUrls += downloadUrl.toString()
+            Log.d("UploadFile", "파일 업로드 완료: ${file.name}, URL: $downloadUrl")
         }
+
+        // 2) Mediapipe 데이터 읽기
+        val mediapipeData = db.collection("interview_mediapipe")
+            .document(sessionId)
+            .get()
+            .await()
+            .data ?: emptyMap<String, Any>()
+
+        // 3) Feedback 참조 저장
+        val feedbackRef = db.collection("interview_feedback").document(sessionId)
+
+        // 4) 인터뷰 문서 저장
+        val videoData = mapOf(
+            "question" to questions,
+            "title" to videoTitle,
+            "uploadTime" to FieldValue.serverTimestamp(),
+            "user" to auth.currentUser?.uid,
+            "videos" to videoUrls.map { mapOf("fileUrl" to it) },
+            "mediapipe" to mediapipeData,
+            "feedback" to feedbackRef,
+            "public" to true
+        )
+
+        db.collection("interview")
+            .document(sessionId)
+            .set(videoData, SetOptions.merge())
+            .await()
+        Log.d("UploadResults", "데이터 저장 성공")
+    } catch (e: Exception) {
+        Log.e("UploadError", "업로드 실패: ${e.message}")
+        throw e // 에러를 상위로 전달
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewCheckQuestionScreen() {

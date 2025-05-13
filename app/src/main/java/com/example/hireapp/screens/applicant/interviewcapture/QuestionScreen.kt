@@ -212,7 +212,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                     phase = "prepare"
                 } else {
                     phase = "done"
-                    navController.navigate("feedback_screen/$sessionId")
+                    showTitleDialog = true
                 }
             }
         }
@@ -372,7 +372,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             confirmButton = {
                 Button(onClick = {
                     uploadVideoAndSave(recordedFiles, sessionId, major, sub, videoTitle, navController)
-                    navController.navigate(Screen.HomeAppl.route)
+                    navController.navigate("feedback_screen/$sessionId")
                     showTitleDialog = false
                 }) {
                     Text("저장")

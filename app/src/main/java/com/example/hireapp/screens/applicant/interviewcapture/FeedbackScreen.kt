@@ -1,7 +1,6 @@
 package com.example.hireapp.screens.applicant.interviewcapture
 
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,11 +10,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 
 @Composable
 fun FeedbackScreen(navController: NavController, sessionId: String) {
@@ -24,11 +20,6 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
     var mediapipeData by remember { mutableStateOf<Map<String, Any>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var showTitleDialog by remember { mutableStateOf(false) }
-    var videoTitle by remember { mutableStateOf("") }
-
-    // Compose에서 context를 가져오기
-    val context = LocalContext.current
 
     // Firestore에서 데이터 가져오기
     LaunchedEffect(sessionId) {
@@ -65,10 +56,10 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("피드백 데이터를 가져오지 못했습니다.", style = MaterialTheme.typography.bodyMedium)
 
-                // 여기에 Button을 추가
+                // 홈 화면으로 돌아가기 버튼
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
-                    onClick = { navController.navigate("home") }, // 홈 화면으로 이동
+                    onClick = { navController.navigate("home") },
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text("홈 화면으로 돌아가기")
@@ -86,46 +77,8 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
         return
     }
 
-    // 제목 작성 다이얼로그
-    if (showTitleDialog) {
-        AlertDialog(
-            onDismissRequest = { showTitleDialog = false },
-            title = { Text("영상 제목 작성") },
-            text = {
-                Column {
-                    Text("영상의 제목을 작성해주세요:")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = videoTitle,
-                        onValueChange = { videoTitle = it },
-                        label = { Text("제목 입력") }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    if (videoTitle.isBlank()) {
-                        // Compose 환경에서 Toast 메시지를 표시하기 위해 LocalContext를 사용
-                        Toast.makeText(context, "제목을 입력해주세요.", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-                    saveTitleAndNavigate(navController, sessionId, videoTitle)
-                    showTitleDialog = false
-                }) {
-                    Text("저장")
-                }
-            },
-            dismissButton = {
-                Button(onClick = { showTitleDialog = false }) {
-                    Text("취소")
-                }
-            }
-        )
-    }
-
     // UI 구성
     Box(modifier = Modifier.fillMaxSize()) {
-        // 피드백 내용
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -162,32 +115,14 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
             Text("정면 미응시: ${gazeCount}회", style = MaterialTheme.typography.bodyMedium)
         }
 
-        // '다음' 버튼
+        // 홈 화면으로 돌아가기 버튼
         Button(
-            onClick = { showTitleDialog = true },
+            onClick = { navController.navigate("home") },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
         ) {
-            Text("다음")
-        }
-    }
-}
-
-// 제목 저장 함수
-private fun saveTitleAndNavigate(navController: NavController, sessionId: String, videoTitle: String) {
-    val db = FirebaseFirestore.getInstance()
-    CoroutineScope(Dispatchers.IO).launch {
-        try {
-            db.collection("interview")
-                .document(sessionId)
-                .update("title", videoTitle)
-                .await()
-            withContext(Dispatchers.Main) {
-                navController.navigate("home")
-            }
-        } catch (e: Exception) {
-            Log.e("SaveTitleError", "제목 저장 실패: ${e.message}")
+            Text("홈 화면으로 돌아가기")
         }
     }
 }
