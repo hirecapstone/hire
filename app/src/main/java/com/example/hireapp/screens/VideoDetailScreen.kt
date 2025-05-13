@@ -41,6 +41,7 @@ import kotlinx.coroutines.tasks.await
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.example.hireapp.navigation.Screen
 
 class VideoPlayerViewModel(
     private val url: String,
@@ -193,6 +194,14 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            Spacer(modifier = Modifier.weight(1f))
+                            TextButton(
+                                onClick = {
+                                    navController.navigate("${Screen.ResultScreen.route}/$videoId")
+                                }
+                            ) {
+                                Text("결과 보기")
+                            }
                         }
 
                         // 제목 + 이름을 하나의 Row로 정렬
@@ -318,7 +327,6 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
 @Composable
 fun VideoPlayer(url: String) {
     val context = LocalContext.current
-    // ViewModel로 관리, url을 key로 사용
     val viewModel: VideoPlayerViewModel = viewModel(
         key = url,
         factory = object : ViewModelProvider.Factory {
@@ -330,27 +338,27 @@ fun VideoPlayer(url: String) {
     )
     val exoPlayer = viewModel.exoPlayer
 
-    DisposableEffect(
-        AndroidView(
-            factory = {
-                PlayerView(it).apply {
-                    player = exoPlayer
-                    useController = true
-                }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = {
-                            exoPlayer.playWhenReady = true
-                        }
-                    )
-                }
-        )
-    ) {
+    // ⬇️ 이 DisposableEffect 블록을 추가하세요.
+    DisposableEffect(exoPlayer) {
         onDispose {
-
+            // Composable 이 빠져나갈 때(예: 회전) 재생 일시정지
+            exoPlayer.playWhenReady = false
+            exoPlayer.pause()
         }
     }
+
+    AndroidView(
+        factory = {
+            PlayerView(it).apply {
+                player = exoPlayer
+                useController = true
+            }
+        },
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures { exoPlayer.playWhenReady = true }
+            }
+    )
 }
+
