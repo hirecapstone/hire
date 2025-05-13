@@ -61,7 +61,12 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
             val major = backStackEntry.arguments?.getString("major") ?: return@composable
             val sub = backStackEntry.arguments?.getString("sub") ?: return@composable
 
-            QuestionScreen(navController = navController, sessionId = sessionId, major = major, sub = sub)
+            QuestionScreen(
+                navController = navController,
+                sessionId = sessionId,
+                major = major,
+                sub = sub
+            )
         }
 
         // 피드백 화면 추가 (세션 ID 필요)
@@ -82,5 +87,7 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
             val videoId = backStackEntry.arguments?.getString("id") ?: return@composable
             VideoDetailScreen(videoId = videoId, navController = navController)
         }
+        // 홈 화면 추가
+        composable(Screen.HomeAppl.route) { HomeApplScreen(navController) }
     }
 }

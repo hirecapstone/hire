@@ -212,7 +212,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                     phase = "prepare"
                 } else {
                     phase = "done"
-                    showTitleDialog = true
+                    navController.navigate("feedback_screen/$sessionId")
                 }
             }
         }
