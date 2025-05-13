@@ -12,6 +12,7 @@ sealed class Screen(val route: String) {
     object HomeAppl : Screen("home_appl")
     object MyPageAppl : Screen("mypage_appl")
     object Capture : Screen("capture")
+    object Capture2 : Screen("capture2")
     object CaptureOption : Screen("capture_option")
     object InsertQuestion : Screen("insert_question")
     object CheckQuestion : Screen("check_question")
