@@ -705,7 +705,6 @@ private fun saveMediapipeResult(
 @Preview(showBackground = true)
 @Composable
 fun PreviewQuestionScreen() {
-    // 임시 NavController, sessionId, major, sub
     QuestionScreen(
         navController = rememberNavController(),
         sessionId = "test",

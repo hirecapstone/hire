@@ -63,13 +63,8 @@ fun CheckQuestionScreen(
     sessionId: String,
     major: String,
     sub: String,
-    questions: List<String>  // questions를 받도록 추가
+    questions: List<String>
 ) {
-    // 질문, 인덱스, 타이머
-    //5/13 capture2screen
-//    val questions    = navController.previousBackStackEntry
-//        ?.savedStateHandle
-//        ?.get<ArrayList<String>>("questions") ?: arrayListOf()
     var currentIndex by remember { mutableStateOf(0) }
     var isReady      by remember { mutableStateOf(true) }
     var timer        by remember { mutableStateOf(30) }
@@ -561,7 +556,7 @@ fun PreviewCheckQuestionScreen() {
         sessionId = "dummySessionId",
         major = "컴퓨터공학",
         sub = "AI",
-        questions = listOf("What is AI?", "Explain machine learning.", "What is your favorite programming language?") // 임의의 질문 리스트 추가
+        questions = listOf("What is AI?", "Explain machine learning.", "What is your favorite programming language?")
     )
 }
 

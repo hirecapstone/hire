@@ -104,12 +104,11 @@ fun InsertQuestionScreen(
                             Icon(Icons.Default.Delete, contentDescription = "삭제 아이콘")
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp)) // 각 질문 항목 사이에 간격 추가
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // 마지막 항목에 질문 추가 버튼을 추가
                 item {
-                    Spacer(modifier = Modifier.height(16.dp)) // 질문과 추가 버튼 사이에 간격 추가
+                    Spacer(modifier = Modifier.height(16.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center
@@ -132,7 +131,6 @@ fun InsertQuestionScreen(
                 }
             }
 
-            // "다음" 버튼을 하단에 배치
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -141,7 +139,6 @@ fun InsertQuestionScreen(
             ) {
                 Button(
                     onClick = {
-                        // "다음" 버튼 클릭 시 onNext 콜백 호출, 값 전달
                         onNext(selectedMajor.value, selectedSub.value, generatedSessionId.value, questionList)
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
@@ -165,11 +162,9 @@ fun InsertQuestionScreen(
 @Preview(showBackground = true)
 @Composable
 fun PreviewInsertQuestionScreen() {
-    // Preview를 위한 onNext 정의
     InsertQuestionScreen(
         navController = rememberNavController(),
         onNext = { selectedMajor, selectedSub, generatedSessionId, enteredQuestions ->
-            // 임시로 값 출력해보기
             println("Selected Major: $selectedMajor")
             println("Selected Sub: $selectedSub")
             println("Generated Session ID: $generatedSessionId")

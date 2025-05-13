@@ -15,7 +15,7 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 
 @Composable
-fun SelectRoleScreen(onNext: (String, String, String) -> Unit) { // 세 개의 매개변수로 수정
+fun SelectRoleScreen(onNext: (String, String, String) -> Unit) {
     val categories = listOf("기업", "공무원", "교육", "대학", "지정 없음")
     val jobMap = mapOf(
         categories[0] to listOf("IT", "디자인", "경영/사무", "생산/기술"),

@@ -84,7 +84,7 @@ fun ResultScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent) // 배경색 제거
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(
@@ -181,9 +181,9 @@ fun ResultScreen(
                             Image(
                                 painter = painterResource(id = com.example.hireapp.R.drawable.q),
                                 contentDescription = "질문 아이콘",
-                                modifier = Modifier.size(20.dp) // 원하는 크기로 조절
+                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp)) // 이미지와 텍스트 사이 간격
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = " $question",
                                 style = MaterialTheme.typography.bodyLarge
@@ -196,9 +196,9 @@ fun ResultScreen(
                             Image(
                                 painter = painterResource(id = com.example.hireapp.R.drawable.a),
                                 contentDescription = "답변 아이콘",
-                                modifier = Modifier.size(20.dp) // 원하는 크기로 조절
+                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp)) // 이미지와 텍스트 사이 간격
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "$answer",
                                 style = MaterialTheme.typography.bodyLarge
@@ -245,7 +245,7 @@ fun ResultScreen(
                                         contentDescription = "별점 이미지",
                                         modifier = Modifier
                                             .size(20.dp)
-                                            .padding(end = 2.dp) // 별 사이 간격
+                                            .padding(end = 2.dp)
                                     )
                                 }
                             }

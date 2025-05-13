@@ -49,7 +49,7 @@ fun Capture2Screen(navController: NavController) {
                         major = selectedMajor
                         sub = selectedSub
                         sessionId = generatedSessionId
-                        questions = enteredQuestions // 이 값을 받아와서 업데이트
+                        questions = enteredQuestions
                         currentStep.value = 2
                     }
                 )
@@ -57,7 +57,7 @@ fun Capture2Screen(navController: NavController) {
                 3 -> CameraSetupScreen(
                     navController = navController,
                     fromInsert = false,
-                    questionsJson = "[]", // 실제 질문 리스트를 전달하려면 여기에 `questions` 값을 넣어야 합니다
+                    questionsJson = "[]",
                     onNext = { currentStep.value = 4 }
                 )
                 4 -> CheckQuestionScreen(

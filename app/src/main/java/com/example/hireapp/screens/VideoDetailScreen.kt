@@ -178,18 +178,16 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                         .padding(horizontal = 16.dp)
                 ) {
                     item {
-                        // 영상 자세히 보기 텍스트 + 이미지
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(vertical = 4.dp)
                         ) {
-                            // movie.png 이미지
                             Image(
-                                painter = painterResource(id = com.example.hireapp.R.drawable.movie), // movie.png
+                                painter = painterResource(id = com.example.hireapp.R.drawable.movie),
                                 contentDescription = "영상 이미지",
-                                modifier = Modifier.size(32.dp) // 적절한 크기 설정
+                                modifier = Modifier.size(32.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp)) // 이미지와 텍스트 간격
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "영상 자세히 보기",
                                 fontSize = 24.sp,
@@ -209,31 +207,25 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                                         contentDescription = "결과 아이콘",
                                         modifier = Modifier
                                             .size(35.dp)
-                                            .offset(y = 12.dp) // 이미지도 아래로 이동
+                                            .offset(y = 12.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = "피드백 보기",
                                         color = Color.Black,
                                         fontSize = 15.sp,
-                                        modifier = Modifier.offset(y = 12.dp) // 텍스트도 아래로 이동
+                                        modifier = Modifier.offset(y = 12.dp)
                                     )
                                 }
-
                             }
-
-
                         }
-
-                        // 제목 + 이름을 하나의 Row로 정렬
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(32.dp) // 제목과 이름 사이 간격 조절
+                            horizontalArrangement = Arrangement.spacedBy(32.dp)
                         ) {
-                            // 제목 영역
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Image(
                                     painter = painterResource(id = com.example.hireapp.R.drawable.title),
@@ -249,7 +241,6 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                             }
                             Spacer(modifier = Modifier.width(4.dp))
 
-                            // 이름 영역
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Image(
                                     painter = painterResource(id = com.example.hireapp.R.drawable.name),
@@ -267,7 +258,6 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // 영상 리스트 (LazyRow) 부분
                         LazyRow(
                             state = listState,
                             flingBehavior = flingBehavior,
