@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -29,6 +30,8 @@ fun ResultScreen(
     var isLoading by remember { mutableStateOf(true) }
     var mediapipeData by remember { mutableStateOf<Map<String, Map<String, Map<String, Any>>>>(emptyMap()) }
     var feedbackData by remember { mutableStateOf<Map<String, Any>>(emptyMap()) }
+    var questionsList by remember { mutableStateOf<List<String>>(emptyList()) }
+    var answersList by remember { mutableStateOf<List<String>>(emptyList()) }
 
     LaunchedEffect(sessionId) {
         val interviewRef = db.collection("interview").document(sessionId)
@@ -44,6 +47,18 @@ fun ResultScreen(
         }
         fbRef?.let { ref -> while (!ref.get().await().exists()) delay(1000L) }
         feedbackData = fbRef?.get()?.await()?.data ?: emptyMap()
+
+        val qRef = db.collection("interview_questions").document(sessionId)
+        while (!qRef.get().await().exists()) delay(1000L)
+        val qSnap = qRef.get().await()
+        questionsList = (qSnap.get("questions") as? List<*>)
+            ?.mapNotNull { it as? String } ?: emptyList()
+
+        val aRef = db.collection("interview_answers").document(sessionId)
+        while (!aRef.get().await().exists()) delay(1000L)
+        val aSnap = aRef.get().await()
+        answersList = (aSnap.get("text") as? List<*>)
+            ?.mapNotNull { it as? String } ?: emptyList()
         isLoading = false
     }
 
@@ -91,7 +106,21 @@ fun ResultScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = """
+                            정확한 피드백을 위해 영상을 분석 중입니다.
+                            1~2분 정도 소요될 수 있어요.
+                            """.trimIndent(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
             return@Scaffold
         }
@@ -134,7 +163,8 @@ fun ResultScreen(
                     "logic" to "논리성",
                     "relevance" to "적절성"
                 )
-
+                val question = questionsList.getOrNull(idx) ?: ""
+                val answer = answersList.getOrNull(idx) ?: ""
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -144,7 +174,9 @@ fun ResultScreen(
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(text = "${idx + 1}번 영상 결과", style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.height(8.dp))
-
+                        Text("질문: $question", style = MaterialTheme.typography.bodyLarge)
+                        Text("답변: $answer", style = MaterialTheme.typography.bodyLarge)
+                        Spacer(Modifier.height(12.dp))
                         // 언어적 피드백
                         Text(text = "▶ 언어적 피드백", style = MaterialTheme.typography.titleSmall)
                         Text(text = "AI 피드백: ${fbList.getOrNull(idx) ?: "피드백 없음"}")
