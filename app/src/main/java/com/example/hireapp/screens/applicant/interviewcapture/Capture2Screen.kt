@@ -73,7 +73,7 @@ fun Capture2Screen(navController: NavController) {
 }
 
 fun getStep2Title(step: Int): String = when (step) {
-    1 -> "정보입력"
+    1 -> "질문입력"
     2 -> "주의사항"
     3 -> "카메라세팅"
     4 -> "영상촬영"

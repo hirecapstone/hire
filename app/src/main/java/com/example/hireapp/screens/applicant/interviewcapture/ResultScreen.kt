@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 package com.example.hireapp.screens.applicant.interviewcapture
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -8,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -45,18 +48,43 @@ fun ResultScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("인터뷰 결과") }) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = com.example.hireapp.R.drawable.result),
+                            contentDescription = "결과 아이콘",
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("인터뷰 결과")
+                    }
+                }
+            )
+        },
         bottomBar = {
             Button(
                 onClick = { navController.navigate(Screen.HomeAppl.route) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent) // 배경색 제거
             ) {
-                Text("홈으로 돌아가기")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.home),
+                        contentDescription = "홈 아이콘",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("홈으로 돌아가기", color = Color.Black)
+                }
             }
         }
-    ) { paddingValues ->
+
+    )
+    { paddingValues ->
         if (isLoading) {
             Box(
                 modifier = Modifier
