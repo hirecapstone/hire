@@ -1,5 +1,6 @@
 package com.example.hireapp.screens
 
+import android.content.Context
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -23,6 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.hireapp.models.Comment
 import com.example.hireapp.models.VideoItem
@@ -35,6 +39,22 @@ import kotlinx.coroutines.tasks.await
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+
+class VideoPlayerViewModel(
+    private val url: String,
+    private val context: Context
+) : ViewModel() {
+    val exoPlayer: ExoPlayer = ExoPlayer.Builder(context).build().apply {
+        setMediaItem(MediaItem.fromUri(Uri.parse(url)))
+        prepare()
+        playWhenReady = true
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        exoPlayer.release()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -247,13 +267,17 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
 @Composable
 fun VideoPlayer(url: String) {
     val context = LocalContext.current
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.parse(url)))
-            prepare()
-            playWhenReady = true
+    // ViewModel로 관리, url을 key로 사용
+    val viewModel: VideoPlayerViewModel = viewModel(
+        key = url,
+        factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return VideoPlayerViewModel(url, context) as T
+            }
         }
-    }
+    )
+    val exoPlayer = viewModel.exoPlayer
 
     DisposableEffect(
         AndroidView(
@@ -275,7 +299,7 @@ fun VideoPlayer(url: String) {
         )
     ) {
         onDispose {
-            exoPlayer.release()
+
         }
     }
 }
