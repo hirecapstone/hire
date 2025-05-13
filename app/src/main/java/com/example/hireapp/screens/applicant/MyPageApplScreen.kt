@@ -1,5 +1,6 @@
 package com.example.hireapp.screens.applicant
 
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
@@ -38,7 +40,9 @@ import com.example.hireapp.util.LoadingState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.tasks.await
 import java.io.InputStream
 import java.text.SimpleDateFormat
@@ -66,8 +70,6 @@ fun MyPageApplScreen(navController: NavController) {
 
     // 인터뷰 목록 불러올 변수
     var videoList by remember { mutableStateOf<List<MyPageVideoItem>>(emptyList()) }
-    // 공개 비공개 드롭다운
-    var expandedMenuId by remember { mutableStateOf(false) }
 
     if (user == null) {
         Toast.makeText(context, "로그인 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -145,34 +147,39 @@ fun MyPageApplScreen(navController: NavController) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier.size(64.dp)
-                    ) {
-                        imageBitmap?.let {
-                            Image(
-                                bitmap = it,
-                                contentDescription = "User Image",
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clickable { launcher.launch("image/*") }
-                                    .background(Color.Gray, CircleShape)
-                            )
-                        } ?: Box(
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clickable { launcher.launch("image/*") }
-                                .background(Color.Gray, CircleShape)
-                        ) {
-                            Text(
-                                text = "이미지 추가",
-                                color = Color.White,
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        }
-                    }
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.info),
+                        contentDescription = "User Image",
+                        modifier = Modifier
+                            .size(96.dp)
+                    )
+//                    {
+//                        imageBitmap?.let {
+//                            Image(
+//                                bitmap = it,
+//                                contentDescription = "User Image",
+//                                modifier = Modifier
+//                                    .size(64.dp)
+//                                    .clickable { launcher.launch("image/*") }
+//                                    .background(Color.Gray, CircleShape)
+//                            )
+//                        } ?: Box(
+//                            modifier = Modifier
+//                                .size(64.dp)
+//                                .clickable { launcher.launch("image/*") }
+//                                .background(Color.Gray, CircleShape)
+//                        )
+//                        {
+//                            Text(
+//                                text = "이미지 추가",
+//                                color = Color.White,
+//                                modifier = Modifier.align(Alignment.Center)
+//                            )
+//                        }
+//                    }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text("이름: $name", style = MaterialTheme.typography.titleMedium)
@@ -283,14 +290,92 @@ fun MyPageApplScreen(navController: NavController) {
                     )
                 }
 
+                // 인터뷰 삭제시 알람
+                var showDeleteDialog by remember { mutableStateOf(false) }
+                var selectedVideoId by remember { mutableStateOf<String?>(null) }
+
                 VideoListScreen(
                     videos = videoList,
                     onTogglePublic = { videoId, newStatus ->
                         videoList = videoList.map {
                             if (it.id == videoId) it.copy(isPublic = newStatus) else it
                         }
+                    },
+                    onDeleteRequest = { videoId ->
+                        selectedVideoId = videoId
+                        showDeleteDialog = true
                     }
                 )
+
+                // 면접 기록 삭제
+                if (showDeleteDialog && selectedVideoId != null) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteDialog = false },
+                        title = { Text("면접 기록 삭제") },
+                        text = { Text("삭제한 면접 기록은 복원할 수 없습니다. 정말로 삭제하시겠습니까?") },
+                        confirmButton = {
+                            /**
+                             * DB 삭제 목록:
+                             *  interview 문서
+                             *  feedback 문서
+                             *  storage에 저장된 면접 동영상
+                             *
+                             * TODO: 위에 작성된 것 외에 'AI 생성 면접 질문, mediapipe 결과 등...' 삭제하려면 db 구조 변경 필요
+                             *  문제:? 트랜잭션 적용되지 않은 상태
+                             */
+                            Button(onClick = {
+                                FirebaseFirestore.getInstance()
+                                    .collection("interview")
+                                    .document(selectedVideoId!!)
+                                    .get()
+                                    .addOnSuccessListener { doc ->
+                                        val videoFileRef = FirebaseStorage.getInstance().reference.child("videos/${doc.id}")
+                                        val feedbackRef = doc.getDocumentReference("feedback")
+
+                                        FirebaseFirestore.getInstance()
+                                            .collection("interview")
+                                            .document(selectedVideoId!!)
+                                            .delete()
+                                            .addOnSuccessListener {
+                                                // feedback 문서 삭제
+                                                feedbackRef?.delete()?.addOnFailureListener {
+                                                    Log.d(
+                                                        "delete-interview",
+                                                        "feedback 문서 삭제에 실패했습니다."
+                                                    )
+                                                }
+                                            }
+
+                                        // storage에서 동영상 파일 삭제
+                                        videoFileRef.listAll()
+                                            .addOnSuccessListener { listResult ->
+                                                listResult.items.forEach { item ->
+                                                    item.delete()
+                                                }
+                                            }
+                                            .addOnFailureListener {
+                                                Log.d("interview-delete", "storage 동영상 파일 삭제에 실패했습니다.")
+                                            }
+
+                                        Toast.makeText(
+                                            context,
+                                            "면접 기록 삭제가 완료되었습니다.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        videoList = videoList.filterNot { it.id == selectedVideoId }
+                                    }
+                                showDeleteDialog = false
+                            }) {
+                                Text("확인")
+                            }
+                        },
+                        dismissButton = {
+                            Button(onClick = { showDeleteDialog = false }) {
+                                Text("취소")
+                            }
+                        }
+                    )
+                }
             }
         }
     }
@@ -302,7 +387,8 @@ fun MyPageApplScreen(navController: NavController) {
 @Composable
 fun VideoListScreen(
     videos: List<MyPageVideoItem>,
-    onTogglePublic: (String, Boolean) -> Unit
+    onTogglePublic: (String, Boolean) -> Unit,
+    onDeleteRequest: (String) -> Unit
 ) {
     val context = LocalContext.current
     var expandedMenuId by remember { mutableStateOf<String?>(null) }
@@ -356,6 +442,7 @@ fun VideoListScreen(
                             modifier = Modifier
                                 .align(Alignment.TopEnd) // 이게 핵심
                         ) {
+                            // 공개 비공개 설정 항목
                             DropdownMenuItem(
                                 text = { Text(if (video.isPublic) "비공개로 설정" else "공개로 설정") },
                                 onClick = {
@@ -375,6 +462,14 @@ fun VideoListScreen(
                                                 Toast.LENGTH_SHORT
                                             ).show()
                                         }
+                                }
+                            )
+                            // 삭제 항목
+                            DropdownMenuItem(
+                                text = { Text("삭제") },
+                                onClick = {
+                                    expandedMenuId = null
+                                    onDeleteRequest(video.id)
                                 }
                             )
                         }

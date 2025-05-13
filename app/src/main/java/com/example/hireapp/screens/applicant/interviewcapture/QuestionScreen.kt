@@ -38,6 +38,7 @@ import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.compose.foundation.Image
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.ActivityCompat
 import androidx.navigation.compose.rememberNavController
@@ -53,6 +54,8 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import androidx.camera.core.Preview as CameraPreview
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import com.example.hireapp.util.LoadingState
 import com.google.firebase.firestore.SetOptions
 
 @Composable
@@ -63,7 +66,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
-    val previewHeight = screenWidth * 3 / 4
+    val previewHeight = screenWidth * 6 / 5
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     var aiQuestions by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -86,6 +89,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                             val questions = document.get("questions") as? List<String>
                             questions ?: emptyList()
                         }
+                        LoadingState.hide()
                         Log.d("FirestoreSuccess", "질문 로드 성공: $aiQuestions")
                     } else {
                         Log.w("FirestoreWarning", "해당 세션 ID에 대한 질문이 없습니다.")
@@ -126,16 +130,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
     // Firestore 질문 로드 상태 확인
     if (aiQuestions.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("질문을 생성 중입니다.", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
+        LoadingState.show("질문을 생성 중입니다.")
         return
     }
 
@@ -168,52 +163,36 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
     // 타이머 및 녹화/분석 로직 통합
     LaunchedEffect(phase, currentIndex) {
-        isTimerRunning = phase == "prepare" || phase == "answer"
-        timeLeft = if (phase == "prepare") 30 else 60
-
-        if (phase == "answer" && hasPermission) {
+        if (phase == "prepare" || phase == "answer") {
+            timeLeft = if (phase == "prepare") 30 else 60
             answerElapsed = 0
             smileTimestamps.clear()
             badPostureTimestamps.clear()
             notFrontTimestamps.clear()
-            startRecording(
-                context,
-                videoCapture.value,
-                recording,
-                recordedFiles,
-                sessionId,
-                currentIndex,
-                onError = {
-                    errorOccurred = true
-                    showRetryDialog = true
-                    isTimerRunning = false
-                },
-                permissionLauncher
-            )
-        }
 
-        // 로그 추가: currentIndex, phase, sessionId 상태 확인
-        Log.d("QuestionScreen", "currentIndex: $currentIndex, phase: $phase, sessionId: $sessionId")
+            if (phase == "answer" && hasPermission) {
+                startRecording(
+                    context,
+                    videoCapture.value,
+                    recording,
+                    recordedFiles,
+                    sessionId,
+                    currentIndex,
+                    onError = {
+                        // 오류 처리
+                    },
+                    permissionLauncher
+                )
+            }
 
-        if (phase == "done") {
-            isTimerRunning = false // 타이머 종료
-            Log.d("QuestionScreen", "Navigating to feedback_screen with sessionId: $sessionId")
-            navController.navigate("feedback_screen/$sessionId") // FeedbackScreen으로 이동
-        }
-    }
-
-// 타이머
-    LaunchedEffect(isTimerRunning) {
-        if (isTimerRunning) {
             while (timeLeft > 0) {
                 delay(1000L)
                 timeLeft--
-
                 if (phase == "answer") {
                     answerElapsed++
-                    if (expression == "웃음") smileTimestamps.add(answerElapsed)
-                    if (posture == "구부정") badPostureTimestamps.add(answerElapsed)
-                    if (gaze == "정면아님") notFrontTimestamps.add(answerElapsed)
+                    if (expression == "웃음")      smileTimestamps.add(answerElapsed)
+                    if (posture == "구부정")       badPostureTimestamps.add(answerElapsed)
+                    if (gaze == "정면아님")          notFrontTimestamps.add(answerElapsed)
                 }
             }
 
@@ -225,15 +204,15 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 )
             }
 
-            // 타이머 종료 후 단계 업데이트
             if (phase == "prepare") {
                 phase = "answer"
             } else {
-                if (currentIndex < allQuestions.value.lastIndex) {
+                if (currentIndex < aiQuestions.lastIndex) {
                     currentIndex++
                     phase = "prepare"
                 } else {
                     phase = "done"
+                    showTitleDialog = true
                 }
             }
         }
@@ -255,8 +234,8 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 // → onAnalysis 콜백으로 실시간 결과 받기
                 onAnalysis = { expr, post, gz ->
                     expression = expr
-                    posture    = post
-                    gaze       = gz
+                    posture = post
+                    gaze = gz
                 }
             )
             // 분석 결과 텍스트
@@ -268,7 +247,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment   = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = expression,
@@ -289,7 +268,6 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             }
         }
 
-        // 화면 구성
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -299,17 +277,57 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                "질문 ${currentIndex + 1} / ${allQuestions.value.size}",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(allQuestions.value[currentIndex], style = MaterialTheme.typography.bodyLarge)
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("남은 시간: ${timeLeft}초")
-            Spacer(modifier = Modifier.height(32.dp))
+            // 질문 번호 + 아이콘
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = com.example.hireapp.R.drawable.document),
+                    contentDescription = "질문 이미지",
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "질문 ${currentIndex + 1} / ${allQuestions.value.size}",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
 
-            // 기존 "준비 완료" 또는 "답변 완료" 버튼
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 질문 내용 + GPT 아이콘
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = com.example.hireapp.R.drawable.gpt),
+                    contentDescription = "GPT 이미지",
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    allQuestions.value[currentIndex],
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 남은 시간 + 시계 아이콘
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = com.example.hireapp.R.drawable.time),
+                    contentDescription = "남은 시간 이미지",
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("남은 시간: ${timeLeft}초")
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             Button(
                 onClick = {
                     if (phase == "prepare") {
@@ -324,11 +342,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                             currentIndex++
                             phase = "prepare"
                         } else {
-                            // 마지막 질문일 경우 즉시 피드백 화면으로 전환
-                            isTimerRunning = false // 타이머 중지
-                            phase = "done"
-                            Log.d("QuestionScreen", "Navigating to feedback_screen with sessionId: $sessionId")
-                            navController.navigate("feedback_screen/$sessionId")
+                            showTitleDialog = true
                         }
                     }
                 },
@@ -337,6 +351,43 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 Text(if (phase == "prepare") "준비 완료" else "답변 완료")
             }
         }
+    }
+
+    // 제목 작성 다이얼로그
+    if (showTitleDialog) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("영상 제목 작성") },
+            text = {
+                Column {
+                    Text("영상의 제목을 작성해주세요:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = videoTitle,
+                        onValueChange = { videoTitle = it },
+                        label = { Text("제목 입력") }
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    uploadVideoAndSave(recordedFiles, sessionId, major, sub, videoTitle, navController)
+                    navController.navigate(Screen.HomeAppl.route)
+                    showTitleDialog = false
+                }) {
+                    Text("저장")
+                }
+            },
+            dismissButton = {
+                Button(onClick = {
+                    navController.navigate(Screen.HomeAppl.route)
+                    showTitleDialog = false
+
+                }) {
+                    Text("취소")
+                }
+            }
+        )
     }
 }
 
@@ -584,6 +635,14 @@ fun uploadVideoAndSave(
 
             val questions = latestQuestionRef.get("questions") as? List<String> ?: listOf()
 
+            // — mediapipe 데이터 가져오기 —
+            val mediapipeSnap = db.collection("interview_mediapipe")
+                .document(sessionId)
+                .get()
+                .await()
+            val mediapipeData = mediapipeSnap.data ?: emptyMap<String, Any>()
+
+            val feedbackRef =db.collection("interview_feedback").document(sessionId)
             // Firestore에 저장할 데이터 생성
             val videoData = hashMapOf(
                 "category" to hashMapOf(
@@ -595,6 +654,8 @@ fun uploadVideoAndSave(
                 "uploadTime" to FieldValue.serverTimestamp(),
                 "user" to userUUID,
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
+                "mediapipe"  to mediapipeData,
+                "feedback"  to feedbackRef,
                 "public" to true
             )
 

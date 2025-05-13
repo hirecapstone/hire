@@ -2,18 +2,33 @@ package com.example.hireapp.screens.login
 
 import android.annotation.SuppressLint
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Cake
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.ktx.auth
@@ -28,31 +43,99 @@ fun SignUpScreen(navController: NavController) {
 
     Scaffold {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "어느 역할을 맡고 있나요?", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            Row {
-                RadioButton(selected = role == "면접자", onClick = { role = "면접자" })
-                Text("면접자")
-                Spacer(modifier = Modifier.width(16.dp))
-                RadioButton(selected = role == "면접관", onClick = { role = "면접관" })
-                Text("면접관")
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = {
-                if (role == "면접자" || role == "면접관") {
-                    navController.navigate("sign_up_common/$role")
-                } else {
-                    // 역할이 선택되지 않은 경우에 대한 처리
-                    Toast.makeText(context, "역할을 선택해주세요.", Toast.LENGTH_SHORT).show()
+            Text(
+                text = "어느 역할을 맡고 있나요?",
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 면접자 선택 영역
+                Card(
+                    onClick = { role = "면접자" },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(100.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (role == "면접자") MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        else MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Image(
+                            painter = painterResource(id = com.example.hireapp.R.drawable.speak),
+                            contentDescription = "면접자 이미지",
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("면접자", fontSize = 18.sp)
+                    }
                 }
-            }) {
+
+                // 면접관 선택 영역
+                Card(
+                    onClick = { role = "면접관" },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(100.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (role == "면접관") MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        else MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Image(
+                            painter = painterResource(id = com.example.hireapp.R.drawable.hear),
+                            contentDescription = "면접관 이미지",
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("면접관", fontSize = 18.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    if (role == "면접자" || role == "면접관") {
+                        navController.navigate("sign_up_common/$role")
+                    } else {
+                        Toast.makeText(context, "역할을 선택해주세요.", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("다음")
             }
+
             Spacer(modifier = Modifier.height(16.dp))
+
             TextButton(onClick = { navController.popBackStack() }) {
                 Text("계정이 있으신가요?")
             }
@@ -69,6 +152,8 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
 
@@ -78,19 +163,87 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "회원가입", style = MaterialTheme.typography.headlineMedium)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = com.example.hireapp.R.drawable.register),
+                    contentDescription = "등록 이미지",
+                    modifier = Modifier.size(36.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "회원가입",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
-            TextField(value = name, onValueChange = { name = it }, label = { Text("이름") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text))
+            TextField(value = name, onValueChange = { name = it }, label = { Text("이름") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text), leadingIcon = {
+                Icon(Icons.Rounded.Person, contentDescription = "")
+            }, modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("생년월일 (MM/DD/YYYY)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            TextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("생년월일 (YYYY/MM/DD)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), leadingIcon = {
+                Icon(Icons.Rounded.Cake, contentDescription = "")
+            }, modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("전화번호") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+            TextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("전화번호") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), leadingIcon = {
+                Icon(Icons.Rounded.Phone, contentDescription = "")
+            }, modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = email, onValueChange = { email = it }, label = { Text("이메일 (로그인 ID)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+            TextField(value = email, onValueChange = { email = it }, label = { Text("이메일 (로그인 ID)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), leadingIcon = {
+                Icon(Icons.Rounded.Email, contentDescription = "")
+            }, modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = password, onValueChange = { password = it }, label = { Text("비밀번호") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+            TextField(value = password, onValueChange = { password = it }, label = { Text("비밀번호") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), leadingIcon = {
+                Icon(Icons.Rounded.Lock, contentDescription = "")
+            }, trailingIcon = {
+                val visibilityIcon = if (passwordVisible)
+                    Icons.Default.Visibility
+                else
+                    Icons.Default.VisibilityOff
+
+                val description = if (passwordVisible)
+                    "비밀번호 숨기기"
+                else
+                    "비밀번호 보이기"
+
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(imageVector = visibilityIcon, contentDescription = description)
+                }
+            },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(), modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = confirmPassword, onValueChange = { confirmPassword = it }, label = { Text("비밀번호 확인") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+            TextField(value = confirmPassword, onValueChange = { confirmPassword = it }, label = { Text("비밀번호 확인") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), leadingIcon = {
+                Icon(Icons.Rounded.Lock, contentDescription = "")
+            }, trailingIcon = {
+                val visibilityIcon = if (confirmPasswordVisible)
+                    Icons.Default.Visibility
+                else
+                    Icons.Default.VisibilityOff
+
+                val description = if (confirmPasswordVisible)
+                    "비밀번호 숨기기"
+                else
+                    "비밀번호 보이기"
+
+                IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                    Icon(imageVector = visibilityIcon, contentDescription = description)
+                }
+            },
+                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(), modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(onClick = {
@@ -119,7 +272,7 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
                                     if (role == "면접자") {
                                         navController.navigate("login")
                                     } else {
-                                        navController.navigate("signup_interviewer")
+                                        navController.navigate("login") //signup_interviewer 오류나서 login으로 수정
                                     }
                                 }
                                 .addOnFailureListener { e ->

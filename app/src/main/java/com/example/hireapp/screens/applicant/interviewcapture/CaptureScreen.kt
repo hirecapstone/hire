@@ -1,17 +1,18 @@
 package com.example.hireapp.screens.applicant.interviewcapture
 
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.screens.applicant.BottomNavigationAppl
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaptureScreen(navController: NavController) {
     val currentStep = remember { mutableStateOf(1) }
@@ -20,6 +21,19 @@ fun CaptureScreen(navController: NavController) {
     var sub by remember { mutableStateOf("") }      // SelectRoleScreen에서 전달받을 sub
 
     Scaffold(
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = { Text("Step ${currentStep.value}: ${getStepTitle(currentStep.value)}") }
+                )
+                LinearProgressIndicator(
+                    progress = currentStep.value / 4f,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                )
+            }
+        },
         bottomBar = {
             if (currentStep.value == 1) {
                 BottomNavigationAppl(navController)
@@ -40,6 +54,14 @@ fun CaptureScreen(navController: NavController) {
             }
         }
     }
+}
+
+fun getStepTitle(step: Int): String = when (step) {
+    1 -> "정보입력"
+    2 -> "주의사항"
+    3 -> "카메라세팅"
+    4 -> "질문생성 및 영상촬영"
+    else -> ""
 }
 
 @Preview(showBackground = true)
