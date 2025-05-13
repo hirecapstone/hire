@@ -353,6 +353,10 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
         }
     }
 
+    var isUploading by remember { mutableStateOf(false) } // 업로드 상태 관리
+    var uploadError by remember { mutableStateOf<String?>(null) } // 업로드 에러 상태 관리
+
+
     // 제목 작성 다이얼로그
     if (showTitleDialog) {
         AlertDialog(
@@ -371,6 +375,9 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             },
             confirmButton = {
                 Button(onClick = {
+                    isUploading = true // 업로드 시작 시 로딩 상태 활성화
+                    uploadError = null // 기존 에러 초기화
+
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
                             // 업로드 로직 실행
@@ -382,12 +389,17 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                                 videoTitle = videoTitle
                             )
                             withContext(Dispatchers.Main) {
-                                // 저장 완료 후 피드백 화면으로 이동
+                                // 업로드 완료 후 로딩 종료 및 피드백 화면으로 이동
+                                isUploading = false
                                 showTitleDialog = false
                                 navController.navigate("feedback_screen/$sessionId")
                             }
                         } catch (e: Exception) {
                             Log.e("UploadError", "업로드 중 오류 발생: ${e.message}")
+                            withContext(Dispatchers.Main) {
+                                uploadError = e.message
+                                isUploading = false
+                            }
                         }
                     }
                 }) {
@@ -402,6 +414,25 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                     navController.navigate(Screen.HomeAppl.route)
                 }) {
                     Text("취소")
+                }
+            }
+        )
+    }
+    // 업로드 중 로딩 화면
+    if (isUploading) {
+        LoadingState.show("피드백을 생성 중입니다.")
+        return
+    }
+
+    // 에러 메시지 표시
+    uploadError?.let { errorMessage ->
+        AlertDialog(
+            onDismissRequest = { uploadError = null },
+            title = { Text("오류 발생") },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                Button(onClick = { uploadError = null }) {
+                    Text("확인")
                 }
             }
         )
@@ -633,13 +664,13 @@ fun uploadVideoAndSave(
                     Log.d("UploadFile", "파일 업로드 성공: ${file.name}")
                     val downloadUrl = videoRef.downloadUrl.await()
                     videoUrls.add(downloadUrl.toString())
-                    Log.d("DownloadUrl", "다운로드 URL 가져오기 성공: $downloadUrl")
                 } catch (e: Exception) {
-                    Log.e("UploadError", "파일 업로드 실패: ${e.message}, 파일: ${file.name}")
+                    Log.e("UploadError", "파일 업로드 실패: ${e.message}")
+                    throw e // 문제 발생 시 중단
                 }
             }
 
-            // 2) Firestore 관련 데이터 가져오기
+            // 2) Firestore 데이터 저장
             val questions = db.collection("interview_questions")
                 .document(sessionId)
                 .get()
@@ -654,7 +685,6 @@ fun uploadVideoAndSave(
 
             val feedbackRef = db.collection("interview_feedback").document(sessionId)
 
-            // 3) Firestore에 최종 데이터 저장
             val videoData = mapOf(
                 "category" to mapOf(
                     "major" to major,
@@ -677,6 +707,7 @@ fun uploadVideoAndSave(
             Log.d("UploadResults", "데이터 저장 성공")
         } catch (e: Exception) {
             Log.e("UploadError", "업로드 실패: ${e.message}")
+            throw e // 호출한 곳으로 전달
         }
     }
 }

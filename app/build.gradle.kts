@@ -68,6 +68,9 @@ dependencies {
 
     // Compose Material Icons
     implementation("androidx.compose.material:material-icons-extended")
+    implementation ("androidx.compose.ui:ui:1.4.3" )// 최신 Compose UI 버전
+    implementation ("androidx.compose.material3:material3:1.1.0")
+    implementation ("androidx.compose.ui:ui-tooling:1.4.3")
 
     // Media3 dependencies
     implementation("androidx.media3:media3-exoplayer:1.6.1")

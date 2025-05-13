@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.hireapp.navigation.Screen
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -16,30 +17,62 @@ import kotlinx.coroutines.tasks.await
 @Composable
 fun FeedbackScreen(navController: NavController, sessionId: String) {
     val db = FirebaseFirestore.getInstance()
-    var feedbackData by remember { mutableStateOf<Map<String, Any>?>(null) }
+    var feedbackData by remember { mutableStateOf<List<String>?>(null) }
     var mediapipeData by remember { mutableStateOf<Map<String, Any>?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoadingFeedback by remember { mutableStateOf(true) } // 피드백 데이터 로드 상태
+    var isLoadingMediapipe by remember { mutableStateOf(true) } // Mediapipe 데이터 로드 상태
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     // Firestore에서 데이터 가져오기
     LaunchedEffect(sessionId) {
-        isLoading = true
         errorMessage = null
+
+        // Mediapipe 데이터 가져오기
+        db.collection("interview").document(sessionId)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.e("FirestoreError", "Mediapipe 데이터 로드 실패: ${e.message}")
+                    errorMessage = "Mediapipe 데이터를 불러오는 중 오류가 발생했습니다."
+                    isLoadingMediapipe = false
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null && snapshot.exists()) {
+                    mediapipeData = snapshot.get("mediapipe") as? Map<String, Any>
+                    isLoadingMediapipe = false
+                } else {
+                    mediapipeData = null
+                    isLoadingMediapipe = false
+                }
+            }
+
+        // 피드백 데이터 가져오기
         try {
-            // interview 컬렉션에서 데이터 가져오기
             val document = db.collection("interview").document(sessionId).get().await()
-            feedbackData = document.get("feedback") as? Map<String, Any>
-            mediapipeData = document.get("mediapipe") as? Map<String, Any>
+            val feedbackRef = document.getDocumentReference("feedback")
+
+            if (feedbackRef != null) {
+                feedbackRef.get().addOnSuccessListener { feedbackSnapshot ->
+                    feedbackData = feedbackSnapshot?.get("feedbacks") as? List<String>
+                    isLoadingFeedback = false
+                }.addOnFailureListener {
+                    Log.e("FirestoreError", "피드백 데이터 로드 실패: ${it.message}")
+                    errorMessage = "피드백 데이터를 불러오는 중 오류가 발생했습니다."
+                    isLoadingFeedback = false
+                }
+            } else {
+                feedbackData = null
+                isLoadingFeedback = false
+            }
         } catch (e: Exception) {
-            Log.e("FirestoreError", "데이터 로드 실패: ${e.message}")
-            errorMessage = "데이터를 불러오는 중 오류가 발생했습니다."
-        } finally {
-            isLoading = false
+            Log.e("FirestoreError", "피드백 데이터 로드 실패: ${e.message}")
+            errorMessage = "피드백 데이터를 불러오는 중 오류가 발생했습니다."
+            isLoadingFeedback = false
         }
     }
 
     // 로딩 중 상태 처리
-    if (isLoading) {
+    if (isLoadingFeedback || isLoadingMediapipe) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator()
@@ -50,29 +83,23 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
         return
     }
 
-    // 추가: 데이터가 null일 경우 메시지 표시
-    if (feedbackData == null && mediapipeData == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("피드백 데이터를 가져오지 못했습니다.", style = MaterialTheme.typography.bodyMedium)
-
-                // 홈 화면으로 돌아가기 버튼
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { navController.navigate("home") },
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text("홈 화면으로 돌아가기")
-                }
-            }
-        }
-        return
-    }
-
     // 에러 처리
     if (errorMessage != null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(errorMessage ?: "알 수 없는 오류")
+        }
+        return
+    }
+
+    // 피드백 데이터가 없을 경우 처리
+    val feedbacks = feedbackData
+    if (feedbacks.isNullOrEmpty() && mediapipeData == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                "피드백 데이터를 생성 중입니다. 잠시만 기다려주세요....(상당시간 소요가능)",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.align(Alignment.Center) // 가운데 정렬
+            )
         }
         return
     }
@@ -90,9 +117,8 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
             Text("피드백 결과", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(16.dp))
 
-            val feedbacks = feedbackData?.get("feedbacks") as? List<*>
             if (feedbacks.isNullOrEmpty()) {
-                Text("피드백이 없습니다.", style = MaterialTheme.typography.bodyMedium)
+                Text("영상이 너무 짧아 피드백이 없습니다.", style = MaterialTheme.typography.bodyMedium)
             } else {
                 feedbacks.forEachIndexed { index, feedback ->
                     Text("${index + 1}. $feedback", style = MaterialTheme.typography.bodyMedium)
@@ -117,7 +143,7 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
 
         // 홈 화면으로 돌아가기 버튼
         Button(
-            onClick = { navController.navigate("home") },
+            onClick = { navController.navigate(Screen.HomeAppl.route) },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
