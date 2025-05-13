@@ -13,15 +13,17 @@ import com.example.hireapp.navigation.Screen
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun FeedbackScreen(navController: NavController, sessionId: String) {
     val db = FirebaseFirestore.getInstance()
     var feedbackData by remember { mutableStateOf<List<String>?>(null) }
     var mediapipeData by remember { mutableStateOf<Map<String, Any>?>(null) }
-    var isLoadingFeedback by remember { mutableStateOf(true) } // 피드백 데이터 로드 상태
-    var isLoadingMediapipe by remember { mutableStateOf(true) } // Mediapipe 데이터 로드 상태
+    var isLoadingFeedback by remember { mutableStateOf(true) }
+    var isLoadingMediapipe by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var progress by remember { mutableStateOf(0f) } // 로딩 진행 상태 (0.0 ~ 1.0)
 
     // Firestore에서 데이터 가져오기
     LaunchedEffect(sessionId) {
@@ -44,6 +46,8 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
                     mediapipeData = null
                     isLoadingMediapipe = false
                 }
+                // 미디파이프 데이터 로드 완료 시 진행률 업데이트
+                progress += 0.5f
             }
 
         // 피드백 데이터 가져오기
@@ -69,15 +73,25 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
             errorMessage = "피드백 데이터를 불러오는 중 오류가 발생했습니다."
             isLoadingFeedback = false
         }
+
+        // 피드백 데이터 로드 완료 시 진행률 업데이트
+        progress += 0.5f
     }
 
     // 로딩 중 상태 처리
     if (isLoadingFeedback || isLoadingMediapipe) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(progress = progress)
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("피드백을 생성 중입니다...", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "피드백 데이터를 생성 중입니다... (${(progress * 100).toInt()}%)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center // 텍스트 가운데 정렬
+                )
             }
         }
         return
@@ -98,7 +112,7 @@ fun FeedbackScreen(navController: NavController, sessionId: String) {
             Text(
                 "피드백 데이터를 생성 중입니다. 잠시만 기다려주세요....(상당시간 소요가능)",
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.align(Alignment.Center) // 가운데 정렬
+                textAlign = TextAlign.Center // 텍스트 가운데 정렬
             )
         }
         return
