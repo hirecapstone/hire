@@ -189,6 +189,7 @@ fun ResultScreen(
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically

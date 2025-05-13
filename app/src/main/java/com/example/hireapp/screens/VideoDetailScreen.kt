@@ -185,12 +185,12 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                             Image(
                                 painter = painterResource(id = com.example.hireapp.R.drawable.movie),
                                 contentDescription = "영상 이미지",
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(45.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "영상 자세히 보기",
-                                fontSize = 24.sp,
+                                text = "면접 영상",
+                                fontSize = 35.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.weight(1f))
@@ -211,7 +211,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "피드백 보기",
+                                        text = "상세 피드백",
                                         color = Color.Black,
                                         fontSize = 15.sp,
                                         modifier = Modifier.offset(y = 12.dp)
