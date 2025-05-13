@@ -3,6 +3,7 @@ package com.example.hireapp.screens
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -174,19 +176,68 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                         .padding(horizontal = 16.dp)
                 ) {
                     item {
-                        Text(
-                            text = video!!.title,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                        Text(
-                            text = video!!.userName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        // 영상 자세히 보기 텍스트 + 이미지
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            // movie.png 이미지
+                            Image(
+                                painter = painterResource(id = com.example.hireapp.R.drawable.movie), // movie.png
+                                contentDescription = "영상 이미지",
+                                modifier = Modifier.size(32.dp) // 적절한 크기 설정
+                            )
+                            Spacer(modifier = Modifier.width(8.dp)) // 이미지와 텍스트 간격
+                            Text(
+                                text = "영상 자세히 보기",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
 
+                        // 제목 + 이름을 하나의 Row로 정렬
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(32.dp) // 제목과 이름 사이 간격 조절
+                        ) {
+                            // 제목 영역
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Image(
+                                    painter = painterResource(id = com.example.hireapp.R.drawable.title),
+                                    contentDescription = "제목 이미지",
+                                    modifier = Modifier.size(80.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = video!!.title,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            // 이름 영역
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Image(
+                                    painter = painterResource(id = com.example.hireapp.R.drawable.name),
+                                    contentDescription = "이름 이미지",
+                                    modifier = Modifier.size(68.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = video!!.userName,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // 영상 리스트 (LazyRow) 부분
                         LazyRow(
                             state = listState,
                             flingBehavior = flingBehavior,

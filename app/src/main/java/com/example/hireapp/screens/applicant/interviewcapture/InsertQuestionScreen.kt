@@ -85,41 +85,60 @@ fun InsertQuestionScreen(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
+            // LazyColumn으로 질문 목록을 렌더링
             LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(questionList) { index, question ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // 질문을 위한 TextField
                         TextField(
                             value = question,
                             onValueChange = { questionList[index] = it },
                             label = { Text("질문 ${index + 1}") },
                             modifier = Modifier.weight(1f)
                         )
+                        // 삭제 버튼
                         IconButton(onClick = { questionList.removeAt(index) }) {
                             Icon(Icons.Default.Delete, contentDescription = "삭제 아이콘")
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp)) // 각 질문 항목 사이에 간격 추가
+                }
+
+                // 마지막 항목에 질문 추가 버튼을 추가
+                item {
+                    Spacer(modifier = Modifier.height(16.dp)) // 질문과 추가 버튼 사이에 간격 추가
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Button(
+                            onClick = { questionList.add("") },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Image(
+                                    painter = painterResource(id = com.example.hireapp.R.drawable.add),
+                                    contentDescription = "질문 추가 이미지",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("질문 추가", color = Color.Black)
+                            }
+                        }
+                    }
                 }
             }
 
+            // "다음" 버튼을 하단에 배치
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.End
             ) {
-                Button(onClick = { questionList.add("") }, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(id = com.example.hireapp.R.drawable.add),
-                            contentDescription = "질문 추가 이미지",
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("추가", color = Color.Black)
-                    }
-                }
                 Button(
                     onClick = {
                         // "다음" 버튼 클릭 시 onNext 콜백 호출, 값 전달
@@ -140,6 +159,7 @@ fun InsertQuestionScreen(
             }
         }
     }
+
 }
 
 @Preview(showBackground = true)
