@@ -174,8 +174,37 @@ fun ResultScreen(
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(text = "${idx + 1}번 영상 결과", style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("질문: $question", style = MaterialTheme.typography.bodyLarge)
-                        Text("답변: $answer", style = MaterialTheme.typography.bodyLarge)
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Image(
+                                painter = painterResource(id = com.example.hireapp.R.drawable.q),
+                                contentDescription = "질문 아이콘",
+                                modifier = Modifier.size(20.dp) // 원하는 크기로 조절
+                            )
+                            Spacer(modifier = Modifier.width(6.dp)) // 이미지와 텍스트 사이 간격
+                            Text(
+                                text = " $question",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Image(
+                                painter = painterResource(id = com.example.hireapp.R.drawable.a),
+                                contentDescription = "답변 아이콘",
+                                modifier = Modifier.size(20.dp) // 원하는 크기로 조절
+                            )
+                            Spacer(modifier = Modifier.width(6.dp)) // 이미지와 텍스트 사이 간격
+                            Text(
+                                text = "$answer",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+
                         Spacer(Modifier.height(12.dp))
                         // 언어적 피드백
                         Text(text = "▶ 언어적 피드백", style = MaterialTheme.typography.titleSmall)
@@ -191,7 +220,37 @@ fun ResultScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(text = "말 빠르기: $speedFb")
                         val tot = totalArr.getOrNull(idx) ?: 0
-                        Text(text = "총점: $tot/5")
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "총점: $tot/5",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Row {
+                                for (i in 1..5) {
+                                    val starResId = if (i <= tot) {
+                                        com.example.hireapp.R.drawable.star // 채워진 별
+                                    } else {
+                                        com.example.hireapp.R.drawable.emptystar // 빈 별
+                                    }
+
+                                    Image(
+                                        painter = painterResource(id = starResId),
+                                        contentDescription = "별점 이미지",
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .padding(end = 2.dp) // 별 사이 간격
+                                    )
+                                }
+                            }
+                        }
+
 
                         Spacer(modifier = Modifier.height(8.dp))
                         // 비언어적 피드백

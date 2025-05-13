@@ -19,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -200,8 +201,28 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                                     navController.navigate("${Screen.ResultScreen.route}/$videoId")
                                 }
                             ) {
-                                Text("결과 보기")
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = com.example.hireapp.R.drawable.detail),
+                                        contentDescription = "결과 아이콘",
+                                        modifier = Modifier
+                                            .size(35.dp)
+                                            .offset(y = 12.dp) // 이미지도 아래로 이동
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "피드백 보기",
+                                        color = Color.Black,
+                                        fontSize = 15.sp,
+                                        modifier = Modifier.offset(y = 12.dp) // 텍스트도 아래로 이동
+                                    )
+                                }
+
                             }
+
+
                         }
 
                         // 제목 + 이름을 하나의 Row로 정렬
