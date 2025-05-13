@@ -70,6 +70,7 @@ fun CameraSetupScreen(navController: NavController,
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.65f)
                 .height(previewHeight),
             contentAlignment = Alignment.Center
         ) {
@@ -83,6 +84,7 @@ fun CameraSetupScreen(navController: NavController,
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.35f)
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {

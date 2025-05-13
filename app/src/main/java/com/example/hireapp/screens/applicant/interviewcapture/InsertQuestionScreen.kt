@@ -36,13 +36,28 @@ import androidx.compose.ui.unit.sp
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import com.google.gson.Gson
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+
+// Import 구문 추가
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 
 @Composable
-fun InsertQuestionScreen(navController: NavController) {
+fun InsertQuestionScreen(
+    navController: NavController,
+    onNext: (selectedMajor: String, selectedSub: String, generatedSessionId: String, enteredQuestions: List<String>) -> Unit // enteredQuestions 추가
+) {
+    // 타입 명시적으로 지정
     val questionList = remember { mutableStateListOf<String>() }
     if (questionList.isEmpty()) {
         questionList.add("")
     }
+
+    // 추가된 값들
+    var selectedMajor = remember { mutableStateOf("컴퓨터공학") }
+    var selectedSub = remember { mutableStateOf("AI") }
+    var generatedSessionId = remember { mutableStateOf("session123") }
 
     Scaffold(
         topBar = {
@@ -63,7 +78,6 @@ fun InsertQuestionScreen(navController: NavController) {
                 }
             )
         }
-
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -108,13 +122,10 @@ fun InsertQuestionScreen(navController: NavController) {
                 }
                 Button(
                     onClick = {
-                        val gson = Gson()
-                        val questionsJson = URLEncoder.encode(
-                            gson.toJson(questionList),
-                            StandardCharsets.UTF_8.toString()
-                        )
-                        navController.navigate("${Screen.Warning.route}?fromInsert=true&questions=$questionsJson")
-                    }, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                        // "다음" 버튼 클릭 시 onNext 콜백 호출, 값 전달
+                        onNext(selectedMajor.value, selectedSub.value, generatedSessionId.value, questionList)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(
@@ -134,5 +145,16 @@ fun InsertQuestionScreen(navController: NavController) {
 @Preview(showBackground = true)
 @Composable
 fun PreviewInsertQuestionScreen() {
-    InsertQuestionScreen(navController = rememberNavController())
+    // Preview를 위한 onNext 정의
+    InsertQuestionScreen(
+        navController = rememberNavController(),
+        onNext = { selectedMajor, selectedSub, generatedSessionId, enteredQuestions ->
+            // 임시로 값 출력해보기
+            println("Selected Major: $selectedMajor")
+            println("Selected Sub: $selectedSub")
+            println("Generated Session ID: $generatedSessionId")
+            println("Entered Questions: $enteredQuestions")
+        }
+    )
 }
+

@@ -44,6 +44,7 @@ import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
 import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.navigation.Screen
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -57,11 +58,18 @@ import java.io.File
 
 @SuppressLint("UnsafeOptInUsageError")
 @Composable
-fun CheckQuestionScreen(navController: NavController) {
+fun CheckQuestionScreen(
+    navController: NavController,
+    sessionId: String,
+    major: String,
+    sub: String,
+    questions: List<String>  // questions를 받도록 추가
+) {
     // 질문, 인덱스, 타이머
-    val questions    = navController.previousBackStackEntry
-        ?.savedStateHandle
-        ?.get<ArrayList<String>>("questions") ?: arrayListOf()
+    //5/13 capture2screen
+//    val questions    = navController.previousBackStackEntry
+//        ?.savedStateHandle
+//        ?.get<ArrayList<String>>("questions") ?: arrayListOf()
     var currentIndex by remember { mutableStateOf(0) }
     var isReady      by remember { mutableStateOf(true) }
     var timer        by remember { mutableStateOf(30) }
@@ -544,10 +552,17 @@ private fun uploadResults(
         }
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewCheckQuestionScreen() {
     CheckQuestionScreen(
-        navController = androidx.navigation.compose.rememberNavController()
+        navController = rememberNavController(),
+        sessionId = "dummySessionId",
+        major = "컴퓨터공학",
+        sub = "AI",
+        questions = listOf("What is AI?", "Explain machine learning.", "What is your favorite programming language?") // 임의의 질문 리스트 추가
     )
 }
+
+
