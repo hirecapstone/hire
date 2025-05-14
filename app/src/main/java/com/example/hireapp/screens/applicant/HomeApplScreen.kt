@@ -121,11 +121,6 @@ fun HomeApplScreen(navController: NavController) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            val filterVisibilityAnim by animateFloatAsState(
-                targetValue = if (isFilterVisible) 1f else 0f,
-                label = "filterAnimation"
-            )
-
             AnimatedVisibility(
                 visible = isFilterVisible,
                 enter = expandVertically(),
@@ -150,6 +145,15 @@ fun HomeApplScreen(navController: NavController) {
                             videoList = fetchPublicVideos(selectedMajor?.label, selectedSubs)
                             isFilterVisible = false
                             isFilterApplied = true
+                        }
+                    },
+                    onResetFilter = {
+                        coroutineScope.launch {
+                            videoList = fetchPublicVideos(null, null)
+                            selectedMajor = null
+                            selectedSubs = null
+                            isFilterVisible = false
+                            isFilterApplied = false
                         }
                     }
                 )

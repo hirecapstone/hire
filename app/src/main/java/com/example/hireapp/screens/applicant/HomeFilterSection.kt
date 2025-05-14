@@ -48,7 +48,8 @@ fun FilterSection(
     onMajorSelected: (Category) -> Unit,
     selectedSubs: List<String>?,
     onSubToggled: (String) -> Unit,
-    onApplyFilter: () -> Unit
+    onApplyFilter: () -> Unit,
+    onResetFilter: () -> Unit
 ) {
     val chunkedMajors = majorOptions.chunked(2)
 
@@ -80,8 +81,13 @@ fun FilterSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(onClick = onApplyFilter) {
-            Text("적용")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onApplyFilter) {
+                Text("적용")
+            }
+            Button(onClick = onResetFilter) {
+                Text("필터 초기화")
+            }
         }
     }
 }
