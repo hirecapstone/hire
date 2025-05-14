@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun WarningScreen(onNext: () -> Unit) {
+fun WarningScreen(fromInsert: Boolean = false, onNext: () -> Unit) {
     var checked by remember { mutableStateOf(false) }
 
     Column(
@@ -96,4 +96,5 @@ fun WarningScreen(onNext: () -> Unit) {
 @Composable
 fun WarningScreenPreview() {
     WarningScreen(onNext = {})
+    WarningScreen(fromInsert = false, onNext = {})
 }

@@ -372,7 +372,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             confirmButton = {
                 Button(onClick = {
                     uploadVideoAndSave(recordedFiles, sessionId, major, sub, videoTitle, navController)
-                    navController.navigate(Screen.HomeAppl.route)
+                    navController.navigate("${Screen.ResultScreen.route}/$sessionId")
                     showTitleDialog = false
                 }) {
                     Text("저장")
@@ -705,7 +705,6 @@ private fun saveMediapipeResult(
 @Preview(showBackground = true)
 @Composable
 fun PreviewQuestionScreen() {
-    // 임시 NavController, sessionId, major, sub
     QuestionScreen(
         navController = rememberNavController(),
         sessionId = "test",

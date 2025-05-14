@@ -96,6 +96,7 @@ dependencies {
     implementation ("com.google.mlkit:face-detection:16.1.7")
     implementation ("com.google.mlkit:pose-detection:17.0.0")
 
+    implementation ("com.google.code.gson:gson:2.10.1")
 }
 
 buildscript {

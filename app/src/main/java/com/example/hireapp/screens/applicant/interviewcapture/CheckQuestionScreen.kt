@@ -44,6 +44,7 @@ import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
 import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.navigation.Screen
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -57,11 +58,13 @@ import java.io.File
 
 @SuppressLint("UnsafeOptInUsageError")
 @Composable
-fun CheckQuestionScreen(navController: NavController) {
-    // 질문, 인덱스, 타이머
-    val questions    = navController.previousBackStackEntry
-        ?.savedStateHandle
-        ?.get<ArrayList<String>>("questions") ?: arrayListOf()
+fun CheckQuestionScreen(
+    navController: NavController,
+    sessionId: String,
+    major: String,
+    sub: String,
+    questions: List<String>
+) {
     var currentIndex by remember { mutableStateOf(0) }
     var isReady      by remember { mutableStateOf(true) }
     var timer        by remember { mutableStateOf(30) }
@@ -441,7 +444,7 @@ fun CheckQuestionScreen(navController: NavController) {
                             navController    = navController
                         )
                         showTitleDialog = false
-                        navController.navigate(Screen.HomeAppl.route)
+                        navController.navigate("${Screen.ResultScreen.route}/$sessionId")
                     }) {
                         Text("저장")
                     }
@@ -514,10 +517,16 @@ private fun uploadResults(
             // 3) feedback 참조 저장
             val feedbackRef = db.collection("interview_feedback").document(sessionId)
 
+            val categoryData = mapOf(
+                "major" to "지정 없음",
+                "sub" to "지정 없음"
+            )
+
             // 4) 인터뷰 문서 저장
             val videoData = mapOf(
                 "question" to questions,
                 "title" to videoTitle,
+                "category" to categoryData,
                 "uploadTime" to FieldValue.serverTimestamp(),
                 "user" to auth.currentUser?.uid,
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
@@ -531,17 +540,24 @@ private fun uploadResults(
                 .await()
 
             withContext(Dispatchers.Main) {
-                navController.navigate(Screen.HomeAppl.route)
+                navController.navigate("${Screen.ResultScreen.route}/$sessionId")
             }
         } catch (e: Exception) {
             Log.e("UploadError", "업로드 실패", e)
         }
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewCheckQuestionScreen() {
     CheckQuestionScreen(
-        navController = androidx.navigation.compose.rememberNavController()
+        navController = rememberNavController(),
+        sessionId = "dummySessionId",
+        major = "컴퓨터공학",
+        sub = "AI",
+        questions = listOf("What is AI?", "Explain machine learning.", "What is your favorite programming language?")
     )
 }
+
+
