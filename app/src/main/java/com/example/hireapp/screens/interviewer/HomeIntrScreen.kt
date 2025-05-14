@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,6 +55,7 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
+import com.example.hireapp.screens.applicant.VideoPlayer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -142,15 +144,14 @@ fun HomeIntrScreen(navController: NavController) {
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 더미 UI - 실제 영상 썸네일/재생기로 교체 예정
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(180.dp)
-                                .background(Color.LightGray),
-                            contentAlignment = Alignment.Center
+                                .aspectRatio(9f / 16f)
+                                .align(Alignment.CenterHorizontally)
                         ) {
-                            Text("영상 미리보기")
+                            VideoPlayer(url = video.fileUrl!!)
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
