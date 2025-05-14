@@ -1,11 +1,7 @@
 # hire
 2025-1 하이어 캡스톤 디자인
 
-#수정파일
-1. QuestionScreen.kt
-2. CheckQuestionScreen.kt
-
-#수정사항
-1. 타이머 멈춤현상 해결
-2. 직접 입력한 질문도 interview컬렉션에 저장
-3. mediapipe, feedback interview컬렉션에 연결
+## 구현
+- 마이페이지에서 세부동영상 나오게 연결하기 -> 면접관은 드롭다운 x
+- 좋아요 기능추가하기 (면접자)
+- 좋아요한 동영상 마이페이지에 갖고오기 (면접관)

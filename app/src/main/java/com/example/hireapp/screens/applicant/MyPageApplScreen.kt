@@ -280,7 +280,8 @@ fun MyPageApplScreen(navController: NavController) {
                     onDeleteRequest = { videoId ->
                         selectedVideoId = videoId
                         showDeleteDialog = true
-                    }
+                    },
+                    navController = navController
                 )
 
                 // 면접 기록 삭제
@@ -364,7 +365,8 @@ fun MyPageApplScreen(navController: NavController) {
 fun VideoListScreen(
     videos: List<MyPageVideoItem>,
     onTogglePublic: (String, Boolean) -> Unit,
-    onDeleteRequest: (String) -> Unit
+    onDeleteRequest: (String) -> Unit,
+    navController: NavController
 ) {
     val context = LocalContext.current
     var expandedMenuId by remember { mutableStateOf<String?>(null) }
@@ -374,7 +376,10 @@ fun VideoListScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(8.dp)
+                    .clickable(enabled = expandedMenuId == null) {
+                        navController.navigate("${Screen.VideoDetail.route}/${video.id}")
+                    },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
             ) {

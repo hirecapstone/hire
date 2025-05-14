@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -48,6 +49,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.data.fetchPublicVideos
 import com.example.hireapp.models.VideoItem
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.screens.applicant.LikeSection
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -153,17 +155,24 @@ fun HomeIntrScreen(navController: NavController) {
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // 좋아요 & 댓글 아이콘 (좋아요 기능은 아직 구현x)
-                        Row {
-                            Icon(Icons.Default.FavoriteBorder, contentDescription = "좋아요")
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            LikeSection(videoId = video.id)
                             Spacer(modifier = Modifier.width(16.dp))
-                            Icon(
-                                Icons.Default.ChatBubbleOutline,
-                                contentDescription = "댓글",
-                                modifier = Modifier.clickable {
+                            IconButton(
+                                onClick = {
                                     navController.navigate("${Screen.VideoDetail.route}/${video.id}")
-                                }
-                            )
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ChatBubbleOutline,
+                                    contentDescription = "댓글",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
