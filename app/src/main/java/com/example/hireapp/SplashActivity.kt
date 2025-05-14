@@ -48,7 +48,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 60.dp) // 전체 Column을 약간 아래로
+                .padding(bottom = 60.dp)
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
@@ -58,7 +58,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
                 modifier = Modifier.size(300.dp)
             )
 
-            Spacer(modifier = Modifier.height(200.dp)) // 이미지와 텍스트 간 간격
+            Spacer(modifier = Modifier.height(200.dp))
 
             Text(
                 text = "면접 분석 프로그램",

@@ -114,30 +114,6 @@ fun MyPageIntrScreen(navController: NavController) {
                         modifier = Modifier
                             .size(96.dp)
                     )
-//                    {
-//                        bitmap?.let {
-//                            Image(
-//                                bitmap = it.asImageBitmap(),
-//                                contentDescription = "User Image",
-//                                modifier = Modifier
-//                                    .size(64.dp)
-//                                    .clickable { launcher.launch("image/*") }
-//                                    .background(Color.Gray, CircleShape)
-//                            )
-//                        } ?: Box(
-//                            modifier = Modifier
-//                                .size(64.dp)
-//                                .clickable { launcher.launch("image/*") }
-//                                .background(Color.Gray, CircleShape),
-//                            contentAlignment = Alignment.Center
-//                        ) {
-//                            Text(
-//                                text = "이미지 추가",
-//                                color = Color.White,
-//                                modifier = Modifier.align(Alignment.Center)
-//                            )
-//                        }
-//                    }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text("이름: $name", style = MaterialTheme.typography.titleMedium)

@@ -1,7 +1,9 @@
 package com.example.hireapp.screens
 
+import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
@@ -17,12 +19,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.hireapp.models.Comment
 import com.example.hireapp.models.VideoItem
@@ -35,6 +42,23 @@ import kotlinx.coroutines.tasks.await
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.example.hireapp.navigation.Screen
+
+class VideoPlayerViewModel(
+    private val url: String,
+    private val context: Context
+) : ViewModel() {
+    val exoPlayer: ExoPlayer = ExoPlayer.Builder(context).build().apply {
+        setMediaItem(MediaItem.fromUri(Uri.parse(url)))
+        prepare()
+        playWhenReady = true
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        exoPlayer.release()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -154,18 +178,85 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                         .padding(horizontal = 16.dp)
                 ) {
                     item {
-                        Text(
-                            text = video!!.title,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                        Text(
-                            text = video!!.userName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = com.example.hireapp.R.drawable.movie),
+                                contentDescription = "영상 이미지",
+                                modifier = Modifier.size(45.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "면접 영상",
+                                fontSize = 35.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            TextButton(
+                                onClick = {
+                                    navController.navigate("${Screen.ResultScreen.route}/$videoId")
+                                }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = com.example.hireapp.R.drawable.detail),
+                                        contentDescription = "결과 아이콘",
+                                        modifier = Modifier
+                                            .size(35.dp)
+                                            .offset(y = 12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "상세 피드백",
+                                        color = Color.Black,
+                                        fontSize = 15.sp,
+                                        modifier = Modifier.offset(y = 12.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(32.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Image(
+                                    painter = painterResource(id = com.example.hireapp.R.drawable.title),
+                                    contentDescription = "제목 이미지",
+                                    modifier = Modifier.size(80.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = video!!.title,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Image(
+                                    painter = painterResource(id = com.example.hireapp.R.drawable.name),
+                                    contentDescription = "이름 이미지",
+                                    modifier = Modifier.size(68.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = video!!.userName,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         LazyRow(
                             state = listState,
@@ -247,35 +338,38 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
 @Composable
 fun VideoPlayer(url: String) {
     val context = LocalContext.current
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.parse(url)))
-            prepare()
-            playWhenReady = true
+    val viewModel: VideoPlayerViewModel = viewModel(
+        key = url,
+        factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return VideoPlayerViewModel(url, context) as T
+            }
+        }
+    )
+    val exoPlayer = viewModel.exoPlayer
+
+    // ⬇️ 이 DisposableEffect 블록을 추가하세요.
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            // Composable 이 빠져나갈 때(예: 회전) 재생 일시정지
+            exoPlayer.playWhenReady = false
+            exoPlayer.pause()
         }
     }
 
-    DisposableEffect(
-        AndroidView(
-            factory = {
-                PlayerView(it).apply {
-                    player = exoPlayer
-                    useController = true
-                }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = {
-                            exoPlayer.playWhenReady = true
-                        }
-                    )
-                }
-        )
-    ) {
-        onDispose {
-            exoPlayer.release()
-        }
-    }
+    AndroidView(
+        factory = {
+            PlayerView(it).apply {
+                player = exoPlayer
+                useController = true
+            }
+        },
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures { exoPlayer.playWhenReady = true }
+            }
+    )
 }
+

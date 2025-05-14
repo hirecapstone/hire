@@ -31,10 +31,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.models.VideoItem
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.screens.applicant.VideoPlayerViewModel
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -46,6 +48,32 @@ import com.example.hireapp.data.Category
 import com.example.hireapp.data.fetchPublicVideos
 import com.example.hireapp.data.subCategory
 import kotlinx.coroutines.launch
+
+@Composable
+fun VideoPlayer(
+    url: String,
+    viewModel: VideoPlayerViewModel = viewModel(
+        factory = VideoPlayerViewModel.Factory(LocalContext.current)
+    )
+) {
+    // (수정) ViewModel 에서 ExoPlayer 관리
+    val exoPlayer: ExoPlayer = viewModel.getPlayer(url)
+
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = true
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(9f / 16f)
+            .pointerInput(Unit) {
+                detectTapGestures { exoPlayer.playWhenReady = true }
+            }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -166,9 +194,7 @@ fun HomeApplScreen(navController: NavController) {
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(
                             painter = painterResource(id = com.example.hireapp.R.drawable.no),
                             contentDescription = "없음 이미지",
@@ -178,15 +204,17 @@ fun HomeApplScreen(navController: NavController) {
                         Text("불러올 영상이 없습니다.", color = Color.Gray)
                     }
                 }
-            }
-            else {
+            } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.White)
                         .padding(12.dp)
                 ) {
-                    items(videoList) { video ->
+                    items(
+                        items = videoList,
+                        key = { it.id }  // (추가) key 지정으로 재사용 보장
+                    ) { video ->
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -194,7 +222,6 @@ fun HomeApplScreen(navController: NavController) {
                                 .background(Color(0xFFF5F5F5), RoundedCornerShape(12.dp))
                                 .padding(12.dp)
                         ) {
-                            // 유저 이름
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
@@ -207,7 +234,6 @@ fun HomeApplScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // 영상 미리보기
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -219,7 +245,6 @@ fun HomeApplScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // 좋아요 & 댓글 아이콘
                             Row {
                                 Icon(Icons.Default.FavoriteBorder, contentDescription = "좋아요")
                                 Spacer(modifier = Modifier.width(16.dp))
@@ -234,7 +259,6 @@ fun HomeApplScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // 영상제목
                             Text(
                                 text = video.title,
                                 modifier = Modifier.clickable {
@@ -245,43 +269,6 @@ fun HomeApplScreen(navController: NavController) {
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun VideoPlayer(url: String) {
-    val context = LocalContext.current
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.parse(url)))
-            prepare()
-            playWhenReady = false
-        }
-    }
-
-    DisposableEffect(
-        AndroidView(
-            factory = {
-                PlayerView(it).apply {
-                    player = exoPlayer
-                    useController = true
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(9f / 16f)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = {
-                            exoPlayer.playWhenReady = true
-                        }
-                    )
-                }
-        )
-    ) {
-        onDispose {
-            exoPlayer.release()
         }
     }
 }
