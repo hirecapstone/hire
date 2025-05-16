@@ -314,51 +314,53 @@ fun ResultScreen(
                         Text(text = "- 표정: $expressionFb")
                     }
                 }
-                // 별점 UI
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    // 평균 별점: 별점 주고 나서만 표시
-                    if (userRating != null) {
-                        Text(
-                            text = "전체 별점 평균: ${"%.1f".format(averageRating)} / 5",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Row {
-                            val filled = averageRating.toInt()
-                            for (i in 1..5) {
-                                val res = if (i <= filled) com.example.hireapp.R.drawable.star else com.example.hireapp.R.drawable.emptystar
-                                Image(
-                                    painter = painterResource(id = res),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                // 면접관만 별점 UI 표시
+                if (userRole == "면접관") {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        // 평균 별점: 별점 주고 나서만 표시
+                        if (userRating != null) {
+                            Text(
+                                text = "전체 별점 평균: ${"%.1f".format(averageRating)} / 5",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Row {
+                                val filled = averageRating.toInt()
+                                for (i in 1..5) {
+                                    val res = if (i <= filled) com.example.hireapp.R.drawable.star else com.example.hireapp.R.drawable.emptystar
+                                    Image(
+                                        painter = painterResource(id = res),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
+                        } else {
+                            Text(
+                                text = "별점을 남기면 평균을 확인할 수 있어요.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                         }
-                    } else {
-                        Text(
-                            text = "별점을 남기면 평균을 확인할 수 있어요.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
 
-                    Spacer(Modifier.height(8.dp))
-                    Text("나의 평가", style = MaterialTheme.typography.titleSmall)
-                    Row {
-                        for (i in 1..5) {
-                            IconButton(
-                                onClick = { if (userRating != i) saveRating(i) },
-                                enabled = (userRating != i)
-                            ) {
-                                val res = if (userRating != null && i <= userRating!!) com.example.hireapp.R.drawable.star else com.example.hireapp.R.drawable.emptystar
-                                Image(
-                                    painter = painterResource(id = res),
-                                    contentDescription = "${i}점",
-                                    modifier = Modifier.size(28.dp)
-                                )
+                        Spacer(Modifier.height(8.dp))
+                        Text("나의 평가", style = MaterialTheme.typography.titleSmall)
+                        Row {
+                            for (i in 1..5) {
+                                IconButton(
+                                    onClick = { if (userRating != i) saveRating(i) },
+                                    enabled = (userRating != i)
+                                ) {
+                                    val res = if (userRating != null && i <= userRating!!) com.example.hireapp.R.drawable.star else com.example.hireapp.R.drawable.emptystar
+                                    Image(
+                                        painter = painterResource(id = res),
+                                        contentDescription = "${i}점",
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                             }
                         }
                     }
