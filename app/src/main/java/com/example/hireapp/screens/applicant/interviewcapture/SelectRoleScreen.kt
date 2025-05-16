@@ -13,9 +13,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlin.math.roundToInt
 
 @Composable
 fun SelectRoleScreen(onNext: (String, String, String) -> Unit) {
+    var questionCount by remember { mutableStateOf(1) }
     val categories = listOf("기업", "공무원", "교육", "대학", "지정 없음")
     val jobMap = mapOf(
         categories[0] to listOf("IT", "디자인", "경영/사무", "생산/기술"),
@@ -45,6 +47,15 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        Text("생성할 질문 개수: $questionCount", style = MaterialTheme.typography.titleMedium)
+        Slider(
+            value = questionCount.toFloat(),
+            onValueChange = { questionCount = it.roundToInt() },
+            valueRange = 1f..10f,
+            steps = 8, // 10단계 (1~10)
+            modifier = Modifier.fillMaxWidth()
+        )
+
         DropdownMenuBox("대분류", categories, selectedCategory) {
             selectedCategory = it
             selectedSubcategory = ""
@@ -78,6 +89,7 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) {
                 val db = Firebase.firestore
                 val sessionId = "session_${System.currentTimeMillis()}" // 고유 세션 ID 생성
                 val data = hashMapOf(
+                    "questionCount" to questionCount,
                     "category" to selectedCategory,
                     "job" to selectedSubcategory,
                     "contact" to contact,
