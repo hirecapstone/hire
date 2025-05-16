@@ -48,6 +48,9 @@ import com.example.hireapp.data.Category
 import com.example.hireapp.data.fetchPublicVideos
 import com.example.hireapp.data.subCategory
 import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.Favorite
+import com.google.firebase.auth.ktx.auth
 
 @Composable
 fun VideoPlayer(
@@ -245,16 +248,26 @@ fun HomeApplScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            Row {
-                                Icon(Icons.Default.FavoriteBorder, contentDescription = "좋아요")
+                            Row (
+                                verticalAlignment = Alignment.CenterVertically
+                            ){
+                                LikeSection(videoId = video.id)
+
                                 Spacer(modifier = Modifier.width(16.dp))
-                                Icon(
-                                    Icons.Default.ChatBubbleOutline,
-                                    contentDescription = "댓글",
-                                    modifier = Modifier.clickable {
+
+                                IconButton(
+                                    onClick = {
                                         navController.navigate("${Screen.VideoDetail.route}/${video.id}")
-                                    }
-                                )
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ChatBubbleOutline,
+                                        contentDescription = "댓글",
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -270,6 +283,44 @@ fun HomeApplScreen(navController: NavController) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun LikeSection(videoId: String) {
+    val db = Firebase.firestore
+    val userId = Firebase.auth.currentUser?.uid ?: return
+    val likesRef = db.collection("interview").document(videoId).collection("likes")
+
+    var isLiked by remember { mutableStateOf(false) }
+    var likeCount by remember { mutableStateOf(0) }
+
+    LaunchedEffect(videoId) {
+        val snapshot = likesRef.get().await()
+        likeCount = snapshot.size()
+        isLiked = snapshot.documents.any { it.id == userId }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = {
+            val userLikeRef = likesRef.document(userId)
+            if (isLiked) {
+                userLikeRef.delete()
+                isLiked = false
+                likeCount--
+            } else {
+                userLikeRef.set(mapOf("likedAt" to System.currentTimeMillis()))
+                isLiked = true
+                likeCount++
+            }
+        }) {
+            Icon(
+                imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                contentDescription = "좋아요",
+                tint = if (isLiked) Color.Red else Color.Gray
+            )
+        }
+        Text(text = "$likeCount")
     }
 }
 
