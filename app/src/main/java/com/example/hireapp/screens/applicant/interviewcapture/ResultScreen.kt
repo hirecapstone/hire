@@ -16,9 +16,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 @Composable
@@ -26,12 +28,36 @@ fun ResultScreen(
     navController: NavController,
     sessionId: String
 ) {
+    val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
+    val scope = rememberCoroutineScope()
+
+    // 사용자 역할 및 별점 상태
+    var userRole by remember { mutableStateOf<String?>(null) }
+    var roleLoading by remember { mutableStateOf(true) }
+    var userRating by remember { mutableStateOf<Int?>(null) }
+    var averageRating by remember { mutableStateOf(0.0) }
+
     var isLoading by remember { mutableStateOf(true) }
     var mediapipeData by remember { mutableStateOf<Map<String, Map<String, Map<String, Any>>>>(emptyMap()) }
     var feedbackData by remember { mutableStateOf<Map<String, Any>>(emptyMap()) }
     var questionsList by remember { mutableStateOf<List<String>>(emptyList()) }
     var answersList by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            navController.navigate("login")
+        } else {
+            try {
+                val doc = db.collection("users").document(uid).get().await()
+                userRole = doc.getString("role")
+            } catch (e: Exception) {
+                userRole = null
+            }
+        }
+        roleLoading = false
+    }
 
     LaunchedEffect(sessionId) {
         val interviewRef = db.collection("interview").document(sessionId)
@@ -59,7 +85,34 @@ fun ResultScreen(
         val aSnap = aRef.get().await()
         answersList = (aSnap.get("text") as? List<*>)
             ?.mapNotNull { it as? String } ?: emptyList()
+
+        // 별점 불러오기
+        val ratingsCol = interviewRef.collection("ratings")
+        val uid = auth.currentUser?.uid
+        if (uid != null) {
+            val myRating = ratingsCol.document(uid).get().await().getLong("rating")?.toInt()
+            userRating = myRating
+        }
+        val allRatings = ratingsCol.get().await().documents
+            .mapNotNull { it.getLong("rating")?.toInt() }
+        averageRating = if (allRatings.isNotEmpty()) allRatings.average() else 0.0
+
         isLoading = false
+    }
+    fun saveRating(rating: Int) {
+        scope.launch {
+            val ratingsCol = db.collection("interview").document(sessionId).collection("ratings")
+            auth.currentUser?.uid?.let { uid ->
+                ratingsCol.document(uid)
+                    .set(mapOf("rating" to rating))
+                    .await()
+                // 평균 재계산
+                val all = ratingsCol.get().await().documents
+                    .mapNotNull { it.getLong("rating")?.toInt() }
+                averageRating = if (all.isNotEmpty()) all.average() else 0.0
+                userRating = rating
+            }
+        }
     }
 
     Scaffold(
@@ -259,6 +312,55 @@ fun ResultScreen(
                         Text(text = "- 자세: $postureFb")
                         Text(text = "- 시선: $gazeFb")
                         Text(text = "- 표정: $expressionFb")
+                    }
+                }
+                // 별점 UI
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    // 평균 별점: 별점 주고 나서만 표시
+                    if (userRating != null) {
+                        Text(
+                            text = "전체 별점 평균: ${"%.1f".format(averageRating)} / 5",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Row {
+                            val filled = averageRating.toInt()
+                            for (i in 1..5) {
+                                val res = if (i <= filled) com.example.hireapp.R.drawable.star else com.example.hireapp.R.drawable.emptystar
+                                Image(
+                                    painter = painterResource(id = res),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "별점을 남기면 평균을 확인할 수 있어요.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    Text("나의 평가", style = MaterialTheme.typography.titleSmall)
+                    Row {
+                        for (i in 1..5) {
+                            IconButton(
+                                onClick = { if (userRating != i) saveRating(i) },
+                                enabled = (userRating != i)
+                            ) {
+                                val res = if (userRating != null && i <= userRating!!) com.example.hireapp.R.drawable.star else com.example.hireapp.R.drawable.emptystar
+                                Image(
+                                    painter = painterResource(id = res),
+                                    contentDescription = "${i}점",
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
