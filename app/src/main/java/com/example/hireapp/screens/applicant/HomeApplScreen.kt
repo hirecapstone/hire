@@ -2,6 +2,10 @@ package com.example.hireapp.screens.applicant
 
 import android.net.Uri
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +44,13 @@ import kotlinx.coroutines.tasks.await
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.example.hireapp.data.Category
+import com.example.hireapp.data.fetchPublicVideos
+import com.example.hireapp.data.subCategory
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.Favorite
+import com.google.firebase.auth.ktx.auth
 
 @Composable
 fun VideoPlayer(
@@ -69,57 +81,28 @@ fun VideoPlayer(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeApplScreen(navController: NavController) {
+    val coroutineScope = rememberCoroutineScope()
+
     var videoList by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
 
-    LaunchedEffect(Unit) {
-        val db = Firebase.firestore
-        val resultList = mutableListOf<VideoItem>()
+    var selectedMajor by remember { mutableStateOf<Category?>(null) }
+    var selectedSubs by remember { mutableStateOf<List<String>?>(null) }
 
-        try {
-            val interviewDocs = db.collection("interview")
-                .whereEqualTo("public", true)
-                .get()
-                .await()
+    var isFilterVisible by remember { mutableStateOf(false) }
+    var isFilterApplied by remember { mutableStateOf(false) }
 
-            Log.d("FirestoreDebug", "총 interview 문서 수: ${interviewDocs.size()}")
-
-            for (doc in interviewDocs) {
-                val title = doc.getString("title") ?: continue
-
-                val userField = doc.get("user")
-                val userName = when (userField) {
-                    is DocumentReference -> try {
-                        val snapshot = userField.get().await()
-                        snapshot.getString("name")
-                    } catch (e: Exception) {
-                        Log.e("FirestoreDebug", "문서 ${doc.id} → user 문서 불러오기 실패: ${e.message}")
-                        null
-                    }
-                    is String -> try {
-                        val snapshot = db.collection("users").document(userField).get().await()
-                        snapshot.getString("name")
-                    } catch (e: Exception) {
-                        Log.e("FirestoreDebug", "문서 ${doc.id} → UUID로 유저 조회 실패: ${e.message}")
-                        null
-                    }
-                    else -> null
-                }
-
-                if (userName.isNullOrEmpty()) continue
-
-                val videos = doc.get("videos") as? List<Map<String, Any>>
-                val fileUrl = videos?.firstOrNull()?.get("fileUrl") as? String
-                if (fileUrl.isNullOrEmpty()) continue
-
-                resultList.add(VideoItem(id = doc.id, title = title, userName = userName, fileUrl = fileUrl))
-            }
-
-            videoList = resultList
-            Log.d("FirestoreDebug", "최종 videoList 크기: ${videoList.size}")
-
-        } catch (e: Exception) {
-            Log.e("FirestoreDebug", "인터뷰 문서 로딩 실패: ${e.message}")
+    val onApplyFilter: () -> Unit = {
+        coroutineScope.launch {
+            videoList = fetchPublicVideos(
+                selectedMajor?.label,
+                selectedSubs
+            )
         }
+    }
+
+    // 공개 면접 영상 리스트 로드
+    LaunchedEffect(Unit) {
+        videoList = fetchPublicVideos(selectedMajor?.label, selectedSubs)
     }
 
     Scaffold(
@@ -138,7 +121,28 @@ fun HomeApplScreen(navController: NavController) {
                         Text("하이어", style = MaterialTheme.typography.titleLarge)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                actions = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isFilterApplied) {
+                            Text(
+                                text = "필터 적용중",
+                                color = Color.Gray,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(end = 4.dp)
+                            )
+                        }
+                        IconButton(onClick = { isFilterVisible = !isFilterVisible }) {
+                            Icon(
+                                imageVector = Icons.Default.FilterList,
+                                contentDescription = "필터",
+                                tint = if (isFilterApplied) Color(0xFF1976D2) else Color.Gray
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
             )
         },
         bottomBar = { BottomNavigationAppl(navController) }
@@ -148,6 +152,46 @@ fun HomeApplScreen(navController: NavController) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            AnimatedVisibility(
+                visible = isFilterVisible,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                FilterSection(
+                    majorOptions = Category.entries,
+                    subOptionsMap = subCategory,
+                    selectedMajor = selectedMajor,
+                    onMajorSelected = {
+                        selectedMajor = it
+                        selectedSubs = emptyList()
+                    },
+                    selectedSubs = selectedSubs,
+                    onSubToggled = {
+                        selectedSubs = selectedSubs?.toMutableList()?.apply {
+                            if (contains(it)) remove(it) else add(it)
+                        }
+                    },
+                    onApplyFilter = {
+                        coroutineScope.launch {
+                            videoList = fetchPublicVideos(selectedMajor?.label, selectedSubs)
+                            isFilterVisible = false
+                            isFilterApplied = true
+                        }
+                    },
+                    onResetFilter = {
+                        coroutineScope.launch {
+                            videoList = fetchPublicVideos(null, null)
+                            selectedMajor = null
+                            selectedSubs = null
+                            isFilterVisible = false
+                            isFilterApplied = false
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             if (videoList.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -204,16 +248,26 @@ fun HomeApplScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            Row {
-                                Icon(Icons.Default.FavoriteBorder, contentDescription = "좋아요")
+                            Row (
+                                verticalAlignment = Alignment.CenterVertically
+                            ){
+                                LikeSection(videoId = video.id)
+
                                 Spacer(modifier = Modifier.width(16.dp))
-                                Icon(
-                                    Icons.Default.ChatBubbleOutline,
-                                    contentDescription = "댓글",
-                                    modifier = Modifier.clickable {
+
+                                IconButton(
+                                    onClick = {
                                         navController.navigate("${Screen.VideoDetail.route}/${video.id}")
-                                    }
-                                )
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ChatBubbleOutline,
+                                        contentDescription = "댓글",
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -229,6 +283,44 @@ fun HomeApplScreen(navController: NavController) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun LikeSection(videoId: String) {
+    val db = Firebase.firestore
+    val userId = Firebase.auth.currentUser?.uid ?: return
+    val likesRef = db.collection("interview").document(videoId).collection("likes")
+
+    var isLiked by remember { mutableStateOf(false) }
+    var likeCount by remember { mutableStateOf(0) }
+
+    LaunchedEffect(videoId) {
+        val snapshot = likesRef.get().await()
+        likeCount = snapshot.size()
+        isLiked = snapshot.documents.any { it.id == userId }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = {
+            val userLikeRef = likesRef.document(userId)
+            if (isLiked) {
+                userLikeRef.delete()
+                isLiked = false
+                likeCount--
+            } else {
+                userLikeRef.set(mapOf("likedAt" to System.currentTimeMillis()))
+                isLiked = true
+                likeCount++
+            }
+        }) {
+            Icon(
+                imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                contentDescription = "좋아요",
+                tint = if (isLiked) Color.Red else Color.Gray
+            )
+        }
+        Text(text = "$likeCount")
     }
 }
 
