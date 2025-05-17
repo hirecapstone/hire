@@ -50,8 +50,6 @@ import com.example.hireapp.data.subCategory
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.ktx.auth
 
 @Composable
@@ -73,7 +71,7 @@ fun VideoPlayer(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(5f / 6f)
+            .aspectRatio(9f / 16f)
             .pointerInput(Unit) {
                 detectTapGestures { exoPlayer.playWhenReady = true }
             }
@@ -228,15 +226,16 @@ fun HomeApplScreen(navController: NavController) {
                                 .padding(12.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Image(
-                                    painter = painterResource(id = com.example.hireapp.R.drawable.user),
-                                    contentDescription = "유저 프로필 이미지",
+                                Box(
                                     modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
+                                        .size(40.dp)
+                                        .background(Color.Gray, CircleShape)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = video.userName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text(
+                                    text = "${video.userName}  (${video.major} / ${video.sub})",
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
@@ -244,7 +243,7 @@ fun HomeApplScreen(navController: NavController) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .aspectRatio(5f / 6f)
+                                    .aspectRatio(9f / 16f)
                                     .align(Alignment.CenterHorizontally)
                             ) {
                                 VideoPlayer(url = video.fileUrl!!)
@@ -252,26 +251,19 @@ fun HomeApplScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            Row(
+                            Row (
                                 verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // 좋아요
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(text = "좋아요", fontSize = 14.sp)
-                                    LikeSection(videoId = video.id)
-                                }
+                            ){
+                                LikeSection(videoId = video.id)
 
                                 Spacer(modifier = Modifier.width(16.dp))
 
-                                // 댓글
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable {
+                                IconButton(
+                                    onClick = {
                                         navController.navigate("${Screen.VideoDetail.route}/${video.id}")
-                                    }
+                                    },
+                                    modifier = Modifier.size(36.dp)
                                 ) {
-                                    Text(text = "댓글", fontSize = 14.sp)
-                                    Spacer(modifier = Modifier.width(8.dp))
                                     Icon(
                                         imageVector = Icons.Default.ChatBubbleOutline,
                                         contentDescription = "댓글",
@@ -283,22 +275,12 @@ fun HomeApplScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Image(
-                                    painter = painterResource(id = com.example.hireapp.R.drawable.title2),
-                                    contentDescription = "타이틀 이미지",
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = video.title,
-                                    modifier = Modifier.clickable {
-                                        navController.navigate("${Screen.VideoDetail.route}/${video.id}")
-                                    }
-                                )
-                            }
+                            Text(
+                                text = video.title,
+                                modifier = Modifier.clickable {
+                                    navController.navigate("${Screen.VideoDetail.route}/${video.id}")
+                                }
+                            )
                         }
                     }
                 }
@@ -323,29 +305,25 @@ fun LikeSection(videoId: String) {
     }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Spacer(modifier = Modifier.width(4.dp))
-        Icon(
-            imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-            contentDescription = "좋아요",
-            tint = if (isLiked) Color.Red else Color.Gray,
-            modifier = Modifier
-                .size(24.dp) // 원하는 크기로 조절
-                .clickable {
-                    val userLikeRef = likesRef.document(userId)
-                    if (isLiked) {
-                        userLikeRef.delete()
-                        isLiked = false
-                        likeCount--
-                    } else {
-                        userLikeRef.set(mapOf("likedAt" to System.currentTimeMillis()))
-                        isLiked = true
-                        likeCount++
-                    }
-                }
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(text = "$likeCount", fontSize = 16.sp)
-        Spacer(modifier = Modifier.width(8.dp))
+        IconButton(onClick = {
+            val userLikeRef = likesRef.document(userId)
+            if (isLiked) {
+                userLikeRef.delete()
+                isLiked = false
+                likeCount--
+            } else {
+                userLikeRef.set(mapOf("likedAt" to System.currentTimeMillis()))
+                isLiked = true
+                likeCount++
+            }
+        }) {
+            Icon(
+                imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                contentDescription = "좋아요",
+                tint = if (isLiked) Color.Red else Color.Gray
+            )
+        }
+        Text(text = "$likeCount")
     }
 }
 

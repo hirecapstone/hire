@@ -5,5 +5,7 @@ data class VideoItem(
     val title: String = "",
     val userName: String = "",
     val fileUrl: String? = null,
-    val fileUrls: List<String> = emptyList()
+    val fileUrls: List<String> = emptyList(),
+    val major: String = "",
+    val sub: String = ""
 )
