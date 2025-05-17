@@ -39,12 +39,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.data.fetchPublicVideos
@@ -133,10 +135,12 @@ fun HomeIntrScreen(navController: NavController) {
                             .padding(12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
+                            Image(
+                                painter = painterResource(id = com.example.hireapp.R.drawable.user),
+                                contentDescription = "유저 프로필 이미지",
                                 modifier = Modifier
-                                    .size(40.dp)
-                                    .background(Color.Gray, CircleShape)
+                                    .size(36.dp)
+                                    .clip(CircleShape)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -151,7 +155,7 @@ fun HomeIntrScreen(navController: NavController) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(9f / 16f)
+                                .aspectRatio(5f / 6f)
                                 .align(Alignment.CenterHorizontally)
                         ) {
                             VideoPlayer(url = video.fileUrl!!)
@@ -162,14 +166,23 @@ fun HomeIntrScreen(navController: NavController) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            LikeSection(videoId = video.id)
+                            // 좋아요
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "좋아요", fontSize = 14.sp)
+                                LikeSection(videoId = video.id)
+                            }
+
                             Spacer(modifier = Modifier.width(16.dp))
-                            IconButton(
-                                onClick = {
+
+                            // 댓글
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable {
                                     navController.navigate("${Screen.VideoDetail.route}/${video.id}")
-                                },
-                                modifier = Modifier.size(36.dp)
+                                }
                             ) {
+                                Text(text = "댓글", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Icon(
                                     imageVector = Icons.Default.ChatBubbleOutline,
                                     contentDescription = "댓글",
@@ -179,15 +192,26 @@ fun HomeIntrScreen(navController: NavController) {
                             }
                         }
 
+
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // 영상 제목
-                        Text(
-                            text = video.title,
-                            modifier = Modifier.clickable {
-                                navController.navigate("${Screen.VideoDetail.route}/${video.id}")
-                            }
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Image(
+                                painter = painterResource(id = com.example.hireapp.R.drawable.title2),
+                                contentDescription = "타이틀 이미지",
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = video.title,
+                                modifier = Modifier.clickable {
+                                    navController.navigate("${Screen.VideoDetail.route}/${video.id}")
+                                }
+                            )
+                        }
+
                     }
                 }
             }
