@@ -140,7 +140,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
             .orderBy("timestamp")
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
-                    Toast.makeText(context, "댓글 불러오기 실패", Toast.LENGTH_SHORT).show()
+//                  Toast.makeText(context, "댓글 불러오기 실패", Toast.LENGTH_SHORT).show()
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
