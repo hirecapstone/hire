@@ -44,26 +44,45 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.screens.applicant.VideoPlayerViewModel
 
-class VideoPlayerViewModel(
-    private val url: String,
-    private val context: Context
-) : ViewModel() {
-    val exoPlayer: ExoPlayer = ExoPlayer.Builder(context).build().apply {
-        setMediaItem(MediaItem.fromUri(Uri.parse(url)))
-        prepare()
-        playWhenReady = true
+@Composable
+fun VideoPlayer(url: String, playerVm: VideoPlayerViewModel ) {
+
+    val exoPlayer = playerVm.getPlayer(url)
+
+    DisposableEffect(exoPlayer) {
+        // 자동재생
+//        exoPlayer.playWhenReady = true
+        onDispose {
+            // 컴포저블이 사라질 때 재생 중지
+            exoPlayer.playWhenReady = false
+            exoPlayer.pause()
+        }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        exoPlayer.release()
-    }
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = true
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(5f / 6f)
+            .pointerInput(Unit) {
+                detectTapGestures { exoPlayer.playWhenReady = true }
+            }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoDetailScreen(videoId: String, navController: NavController) {
+    val playerVm: VideoPlayerViewModel = viewModel(
+        factory = VideoPlayerViewModel.Factory(LocalContext.current)
+    )
     val db = Firebase.firestore
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
@@ -76,6 +95,10 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
     val listState = rememberLazyListState()
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
+
+    DisposableEffect(Unit) {
+        onDispose { playerVm.releaseAllPlayers() }
+    }
     // 현재 로그인한 유저 이름 가져오기
     LaunchedEffect(Unit) {
         val user = auth.currentUser
@@ -198,6 +221,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                             TextButton(
                                 contentPadding = PaddingValues(0.dp),
                                 onClick = {
+                                    playerVm.releaseAllPlayers()
                                     navController.navigate("${Screen.ResultScreen.route}/$videoId")
                                 }
                             ) {
@@ -270,7 +294,10 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                                         .align(Alignment.CenterHorizontally),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    VideoPlayer(url = url)
+                                    VideoPlayer(
+                                        url = url,
+                                        playerVm = playerVm
+                                    )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
@@ -334,41 +361,5 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
     }
 }
 
-@Composable
-fun VideoPlayer(url: String) {
-    val context = LocalContext.current
-    val viewModel: VideoPlayerViewModel = viewModel(
-        key = url,
-        factory = object : ViewModelProvider.Factory {
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                @Suppress("UNCHECKED_CAST")
-                return VideoPlayerViewModel(url, context) as T
-            }
-        }
-    )
-    val exoPlayer = viewModel.exoPlayer
 
-    // ⬇️ 이 DisposableEffect 블록을 추가하세요.
-    DisposableEffect(exoPlayer) {
-        onDispose {
-            // Composable 이 빠져나갈 때(예: 회전) 재생 일시정지
-            exoPlayer.playWhenReady = false
-            exoPlayer.pause()
-        }
-    }
-
-    AndroidView(
-        factory = {
-            PlayerView(it).apply {
-                player = exoPlayer
-                useController = true
-            }
-        },
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures { exoPlayer.playWhenReady = true }
-            }
-    )
-}
 

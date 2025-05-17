@@ -36,7 +36,6 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.models.VideoItem
 import com.example.hireapp.navigation.Screen
-import com.example.hireapp.screens.applicant.VideoPlayerViewModel
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -52,37 +51,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.sp
+import com.example.hireapp.screens.VideoPlayer
 import com.google.firebase.auth.ktx.auth
 
-@Composable
-fun VideoPlayer(
-    url: String,
-    viewModel: VideoPlayerViewModel = viewModel(
-        factory = VideoPlayerViewModel.Factory(LocalContext.current)
-    )
-) {
-    // (수정) ViewModel 에서 ExoPlayer 관리
-    val exoPlayer: ExoPlayer = viewModel.getPlayer(url)
-
-    AndroidView(
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                player = exoPlayer
-                useController = true
-            }
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(5f / 6f)
-            .pointerInput(Unit) {
-                detectTapGestures { exoPlayer.playWhenReady = true }
-            }
-    )
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeApplScreen(navController: NavController) {
+    val playerVm: VideoPlayerViewModel = viewModel(
+        factory = VideoPlayerViewModel.Factory(LocalContext.current)
+    )
     val coroutineScope = rememberCoroutineScope()
 
     var videoList by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
@@ -100,6 +78,10 @@ fun HomeApplScreen(navController: NavController) {
                 selectedSubs
             )
         }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { playerVm.releaseAllPlayers() }
     }
 
     // 공개 면접 영상 리스트 로드
@@ -250,7 +232,10 @@ fun HomeApplScreen(navController: NavController) {
                                     .aspectRatio(5f / 6f)
                                     .align(Alignment.CenterHorizontally)
                             ) {
-                                VideoPlayer(url = video.fileUrl!!)
+                                VideoPlayer(
+                                    url = video.fileUrl!!,
+                                    playerVm = playerVm
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -270,6 +255,7 @@ fun HomeApplScreen(navController: NavController) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.clickable {
+                                        playerVm.releaseAllPlayers()
                                         navController.navigate("${Screen.VideoDetail.route}/${video.id}")
                                     }
                                 ) {
@@ -298,6 +284,7 @@ fun HomeApplScreen(navController: NavController) {
                                 Text(
                                     text = video.title,
                                     modifier = Modifier.clickable {
+                                        playerVm.releaseAllPlayers()
                                         navController.navigate("${Screen.VideoDetail.route}/${video.id}")
                                     }
                                 )

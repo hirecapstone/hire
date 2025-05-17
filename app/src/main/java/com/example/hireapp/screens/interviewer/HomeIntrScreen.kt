@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,31 +48,41 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.data.fetchPublicVideos
 import com.example.hireapp.models.VideoItem
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.screens.VideoPlayer
 import com.example.hireapp.screens.applicant.LikeSection
+import com.example.hireapp.screens.applicant.VideoPlayerViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
-import com.example.hireapp.screens.applicant.VideoPlayer
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeIntrScreen(navController: NavController) {
-
+    val playerVm: VideoPlayerViewModel = viewModel(
+        factory = VideoPlayerViewModel.Factory(LocalContext.current)
+    )
     val context = LocalContext.current
     var videoList by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
+
+
+    DisposableEffect(Unit) {
+        onDispose { playerVm.releaseAllPlayers() }
+    }
 
     LaunchedEffect(Unit) {
         val user = Firebase.auth.currentUser
 
         if(user != null) {
             try {
-                val doc = Firebase.firestore.collection("user").document(user.uid).get().await()
+                val doc = Firebase.firestore.collection("users").document(user.uid).get().await()
 
                 val major = doc.getString("category.major")
                 val sub = doc.getString("category.sub")
@@ -158,7 +169,10 @@ fun HomeIntrScreen(navController: NavController) {
                                 .aspectRatio(5f / 6f)
                                 .align(Alignment.CenterHorizontally)
                         ) {
-                            VideoPlayer(url = video.fileUrl!!)
+                            VideoPlayer(
+                                url = video.fileUrl!!,
+                                playerVm = playerVm
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -178,6 +192,7 @@ fun HomeIntrScreen(navController: NavController) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.clickable {
+                                    playerVm.releaseAllPlayers()
                                     navController.navigate("${Screen.VideoDetail.route}/${video.id}")
                                 }
                             ) {
@@ -207,6 +222,7 @@ fun HomeIntrScreen(navController: NavController) {
                             Text(
                                 text = video.title,
                                 modifier = Modifier.clickable {
+                                    playerVm.releaseAllPlayers()
                                     navController.navigate("${Screen.VideoDetail.route}/${video.id}")
                                 }
                             )
@@ -224,6 +240,3 @@ fun HomeIntrScreen(navController: NavController) {
 fun PreviewHomeIntrScreen() {
     HomeIntrScreen(navController = rememberNavController())
 }
-
-data class VideoItem(val id: String, val title: String, val userName: String)
-data class Comment(val user: String, val text: String)
