@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -257,13 +258,16 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                             flingBehavior = flingBehavior,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(5f / 7f)
+                                .aspectRatio(5f / 6f)
+                                .align(Alignment.CenterHorizontally),
+                            contentPadding = PaddingValues(horizontal = 16.dp)
                         ) {
                             itemsIndexed(video!!.fileUrls) { index, url ->
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .aspectRatio(5f / 7f),
+                                        .aspectRatio(5f / 6f)
+                                        .align(Alignment.CenterHorizontally),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     VideoPlayer(url = url)
