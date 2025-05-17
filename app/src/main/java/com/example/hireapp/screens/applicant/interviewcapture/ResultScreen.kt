@@ -38,7 +38,7 @@ fun ResultScreen(
     var roleLoading by remember { mutableStateOf(true) }
     var userRating by remember { mutableStateOf<Int?>(null) }
     var averageRating by remember { mutableStateOf(0.0) }
-
+    var ratingsCount by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     var mediapipeData by remember {
         mutableStateOf<Map<String, Map<String, Map<String, Any>>>>(
@@ -100,6 +100,7 @@ fun ResultScreen(
         }
         val allRatings = ratingsCol.get().await().documents
             .mapNotNull { it.getLong("rating")?.toInt() }
+        ratingsCount = allRatings.size
         averageRating = if (allRatings.isNotEmpty()) allRatings.average() else 0.0
 
         isLoading = false
@@ -114,6 +115,7 @@ fun ResultScreen(
                 // 평균 재계산
                 val all = ratingsCol.get().await().documents
                     .mapNotNull { it.getLong("rating")?.toInt() }
+                ratingsCount = all.size
                 averageRating = if (all.isNotEmpty()) all.average() else 0.0
                 userRating = rating
             }
@@ -137,25 +139,82 @@ fun ResultScreen(
             )
         },
         bottomBar = {
-            Button(
-                onClick = { navController.navigate(Screen.HomeAppl.route) },
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    .background(Color.White)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(id = com.example.hireapp.R.drawable.home),
-                        contentDescription = "홈 아이콘",
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("홈으로 돌아가기", color = Color.Black)
+                // 면접관 또는 면접자(평점 존재)에게만 평균 별점 표시
+                if ((userRole == "면접관") || (userRole == "면접자" && ratingsCount > 0)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "전체 별점 평균: ${"%.1f".format(averageRating)} / 5",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row {
+                            repeat(5) { i ->
+                                val res = if (i < averageRating.toInt())
+                                    com.example.hireapp.R.drawable.star
+                                else
+                                    com.example.hireapp.R.drawable.emptystar
+                                Image(
+                                    painter = painterResource(id = res),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        // 면접관 전용 평가 입력
+                        if (userRole == "면접관") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("나의 평가", style = MaterialTheme.typography.titleSmall)
+                            Row {
+                                repeat(5) { i ->
+                                    val value = i + 1
+                                    IconButton(
+                                        onClick = { if (userRating != value) saveRating(value) },
+                                        enabled = (userRating != value)
+                                    ) {
+                                        val starRes = if (userRating != null && value <= userRating!!)
+                                            com.example.hireapp.R.drawable.star
+                                        else
+                                            com.example.hireapp.R.drawable.emptystar
+                                        Image(
+                                            painter = painterResource(id = starRes),
+                                            contentDescription = "${value}점",
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // 항상 표시되는 홈 버튼
+                Button(
+                    onClick = { navController.navigate(Screen.HomeAppl.route) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = com.example.hireapp.R.drawable.home),
+                            contentDescription = "홈 아이콘",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("홈으로 돌아가기", color = Color.Black)
+                    }
                 }
             }
         }
-
     )
     { paddingValues ->
         Box(
@@ -333,39 +392,6 @@ fun ResultScreen(
                             Text(text = "- 자세: $postureFb")
                             Text(text = "- 시선: $gazeFb")
                             Text(text = "- 표정: $expressionFb")
-                        }
-                    }
-                }
-            }
-            if (userRole == "면접관") {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(Color.White)
-                        .padding(16.dp)
-                ) {
-                    if (userRating != null) {
-                        Text(text = "전체 별점 평균: ${"%.1f".format(averageRating)} / 5", style = MaterialTheme.typography.bodyLarge)
-                        Spacer(Modifier.height(4.dp))
-                        Row {
-                            repeat(5) { i ->
-                                val res = if (i < averageRating.toInt()) com.example.hireapp.R.drawable.star else com.example.hireapp.R.drawable.emptystar
-                                Image(painter = painterResource(id = res), contentDescription = null, modifier = Modifier.size(20.dp))
-                            }
-                        }
-                    } else {
-                        Text(text = "별점을 남기면 평균을 확인할 수 있어요.", style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text("나의 평가", style = MaterialTheme.typography.titleSmall)
-                    Row {
-                        repeat(5) { i ->
-                            val value = i + 1
-                            IconButton(onClick = { if (userRating != value) saveRating(value) }, enabled = (userRating != value)) {
-                                val res = if (userRating != null && value <= userRating!!) com.example.hireapp.R.drawable.star else com.example.hireapp.R.drawable.emptystar
-                                Image(painter = painterResource(id = res), contentDescription = "${value}점", modifier = Modifier.size(28.dp))
-                            }
                         }
                     }
                 }
