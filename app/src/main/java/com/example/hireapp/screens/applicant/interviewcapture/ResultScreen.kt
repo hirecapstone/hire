@@ -197,7 +197,13 @@ fun ResultScreen(
                 }
                 // 항상 표시되는 홈 버튼
                 Button(
-                    onClick = { navController.navigate(Screen.HomeAppl.route) },
+                    onClick = {
+                        if (userRole == "면접관") {
+                            navController.navigate(Screen.HomeIntr.route)
+                        } else {
+                            navController.navigate(Screen.HomeAppl.route)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),

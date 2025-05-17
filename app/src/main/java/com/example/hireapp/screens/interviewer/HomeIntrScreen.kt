@@ -139,7 +139,10 @@ fun HomeIntrScreen(navController: NavController) {
                                     .background(Color.Gray, CircleShape)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = video.userName, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "${video.userName}  (${video.major} / ${video.sub})",
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))

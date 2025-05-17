@@ -69,7 +69,11 @@ suspend fun fetchPublicVideos(major: String?, sub: List<String>?): List<VideoIte
             val videos = doc.get("videos") as? List<Map<String, Any>>
             val fileUrl = videos?.firstOrNull()?.get("fileUrl") as? String ?: continue
 
-            resultList.add(VideoItem(doc.id, title, userName, fileUrl))
+            val categoryMap = doc.get("category") as? Map<*, *>
+            val major = categoryMap?.get("major") as? String ?: "대분류 없음"
+            val sub = categoryMap?.get("sub") as? String ?: "소분류 없음"
+
+            resultList.add(VideoItem(doc.id, title, userName, fileUrl, emptyList(), major, sub))
         }
 
     } catch (e: Exception) {
