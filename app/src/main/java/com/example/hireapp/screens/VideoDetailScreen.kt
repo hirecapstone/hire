@@ -175,82 +175,76 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = 8.dp)
                 ) {
                     item {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Image(
                                 painter = painterResource(id = com.example.hireapp.R.drawable.movie),
                                 contentDescription = "영상 이미지",
-                                modifier = Modifier.size(45.dp)
+                                modifier = Modifier.size(40.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "면접 영상",
-                                fontSize = 35.sp,
+                                fontSize = 28.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.weight(1f))
                             TextButton(
+                                contentPadding = PaddingValues(0.dp),
                                 onClick = {
                                     navController.navigate("${Screen.ResultScreen.route}/$videoId")
                                 }
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Image(
-                                        painter = painterResource(id = com.example.hireapp.R.drawable.detail),
-                                        contentDescription = "결과 아이콘",
-                                        modifier = Modifier
-                                            .size(35.dp)
-                                            .offset(y = 12.dp)
+                                        painter = painterResource(id = com.example.hireapp.R.drawable.detail2),
+                                        contentDescription = "디테일 아이콘",
+                                        modifier = Modifier.size(28.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "상세 피드백",
                                         color = Color.Black,
-                                        fontSize = 15.sp,
-                                        modifier = Modifier.offset(y = 12.dp)
+                                        fontSize = 18.sp
                                     )
                                 }
                             }
                         }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(32.dp)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
+                            Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Image(
                                     painter = painterResource(id = com.example.hireapp.R.drawable.title),
                                     contentDescription = "제목 이미지",
-                                    modifier = Modifier.size(80.dp)
+                                    modifier = Modifier.size(40.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = video!!.title,
-                                    fontSize = 20.sp,
+                                    fontSize = 18.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
-                            Spacer(modifier = Modifier.width(4.dp))
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Image(
                                     painter = painterResource(id = com.example.hireapp.R.drawable.name),
                                     contentDescription = "이름 이미지",
-                                    modifier = Modifier.size(68.dp)
+                                    modifier = Modifier.size(40.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = video!!.userName,
-                                    fontSize = 20.sp,
+                                    fontSize = 18.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -263,13 +257,14 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                             flingBehavior = flingBehavior,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(9f / 16f)
+                                .aspectRatio(5f / 7f)
                         ) {
                             itemsIndexed(video!!.fileUrls) { index, url ->
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .aspectRatio(9f / 16f)
+                                        .aspectRatio(5f / 7f),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     VideoPlayer(url = url)
                                 }
