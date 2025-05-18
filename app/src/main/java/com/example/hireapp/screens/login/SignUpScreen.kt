@@ -208,7 +208,7 @@ fun SignUpCommonScreen(navController: NavController, viewModel: SignUpModel, rol
                 .fillMaxWidth()
                 .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("생년월일 (YYYY/MM/DD)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), leadingIcon = {
+            TextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("생년월일 (YYYY/MM/DD)") },  keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text), leadingIcon = {
                 Icon(Icons.Rounded.Cake, contentDescription = "")
             }, modifier = Modifier
                 .fillMaxWidth()
