@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.SupervisorAccount
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -96,7 +98,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
     var currUserSub by remember { mutableStateOf("지정 없음") }
     val listState = rememberLazyListState()
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
-
+    var currentUserRole by remember { mutableStateOf("익명") }
 
     DisposableEffect(Unit) {
         onDispose { playerVm.releaseAllPlayers() }
@@ -111,7 +113,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     val categoryMap = doc.get("category") as? Map<*, *>
                     currUserMajor = categoryMap?.get("major") as? String ?: "지정 없음"
                     currUserSub = categoryMap?.get("sub") as? String ?: "지정 없음"
-
+                    currentUserRole = doc.getString("role") ?: "익명"
                     Log.d("Comment", "로그인한 유저 ㅅcategory: ${categoryMap}, ${currUserMajor}, ${currUserSub}")
                 }
                 .addOnFailureListener {
@@ -180,7 +182,8 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                         val sub = doc.getString("sub") ?: "지정 없음"
                         val user = doc.getString("user") ?: "익명"
                         val text = doc.getString("text") ?: ""
-                        comments.add(Comment(user = user, major = major, sub = sub, text = text))
+                        val role  = doc.getString("role")  ?: "익명"
+                        comments.add(Comment(user = user, major = major, sub = sub, text = text, role = role))
                     }
                 }
             }
@@ -318,6 +321,17 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     itemsIndexed(comments) { _, comment ->
                         Column(modifier = Modifier.padding(vertical = 8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                val avatarRes = when (comment.role) {
+                                    "면접관" -> com.example.hireapp.R.drawable.speak
+                                    "면접자" -> com.example.hireapp.R.drawable.hear         // 면접자 아이콘
+                                    else      -> com.example.hireapp.R.drawable.hear
+                                }
+                                Image(
+                                    painter = painterResource(id = avatarRes),
+                                    contentDescription = comment.role,
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                )
                                 Text(text = comment.user, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(text = "${comment.major} | ${comment.sub}", color = Color.Gray)
@@ -341,7 +355,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     )
                     IconButton(onClick = {
                         if (inputText.isNotBlank()) {
-                            val newComment = Comment(currentUserName, currUserMajor, currUserSub, inputText)
+                            val newComment = Comment(currentUserName, currUserMajor, currUserSub, inputText, currentUserRole)
                             coroutineScope.launch {
                                 try {
                                     db.collection("interview")
@@ -352,6 +366,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                                             "text" to newComment.text,
                                             "major" to newComment.major,
                                             "sub" to newComment.sub,
+                                            "role"      to newComment.role,
                                             "timestamp" to System.currentTimeMillis()
                                         ))
                                     inputText = ""
