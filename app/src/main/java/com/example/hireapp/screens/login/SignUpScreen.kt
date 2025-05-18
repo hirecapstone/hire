@@ -7,6 +7,7 @@ import androidx.annotation.RestrictTo
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -21,9 +22,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -327,28 +330,91 @@ fun SignUpInterviewerScreen(navController: NavController, viewModel: SignUpModel
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 대분류 선택
-            DropdownMenuWithFixedTextSize(
-                label = "대분류",
-                items = categories,
-                selectedItem = selectedCategory,
-                onItemSelected = { selectedCategory = it },
-                width = 240.dp
-            )
+            // 대분류 선택 카드
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(6.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.category1),
+                        contentDescription = null,
+                        modifier = Modifier.size(60.dp)
+                    )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "대분류",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.width(70.dp),
+                        fontWeight = FontWeight.SemiBold
+                    )
 
-            // 세부 직군
-            DropdownMenuWithFixedTextSize(
-                label = "세부 직군",
-                items = subJobsMap[selectedCategory] ?: emptyList(),
-                selectedItem = selectedJob,
-                onItemSelected = { selectedJob = it },
-                width = 240.dp
-            )
+                    Spacer(modifier = Modifier.width(24.dp))
+
+                    DropdownMenuWithFixedTextSize(
+                        label = "",
+                        items = categories,
+                        selectedItem = selectedCategory,
+                        onItemSelected = { selectedCategory = it },
+                        width = 150.dp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 세부 직군 선택 카드
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(6.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.category2),
+                        contentDescription = null,
+                        modifier = Modifier.size(60.dp)
+                    )
+
+                    Text(
+                        text = "세부 직군",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.width(70.dp),
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(modifier = Modifier.width(24.dp))
+
+                    DropdownMenuWithFixedTextSize(
+                        label = "",
+                        items = subJobsMap[selectedCategory] ?: emptyList(),
+                        selectedItem = selectedJob,
+                        onItemSelected = { selectedJob = it },
+                        width = 150.dp
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // 회원가입 버튼
             Button(
                 onClick = {
                     if (selectedCategory != null && selectedJob != null) {
@@ -379,10 +445,15 @@ fun SignUpInterviewerScreen(navController: NavController, viewModel: SignUpModel
                         }
                     }
                 },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF87CEEB),
+                    contentColor = Color.White
+                ),
                 enabled = selectedCategory != null && selectedJob != null,
                 modifier = Modifier
                     .width(200.dp)
                     .height(48.dp)
+                    .align(Alignment.CenterHorizontally)
             ) {
                 Text("회원가입 완료")
             }
@@ -401,28 +472,45 @@ fun DropdownMenuWithFixedTextSize(
     var expanded by remember { mutableStateOf(false) }
 
     Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        if (label.isNotEmpty()) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
         Box(
             modifier = Modifier
                 .width(width)
                 .height(48.dp)
-                .background(MaterialTheme.colorScheme.primaryContainer)
         ) {
-            Button(
+            OutlinedButton(
                 onClick = { expanded = true },
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Text(
-                    text = selectedItem ?: "선택",
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1
+                modifier = Modifier
+                    .fillMaxSize(),
+                shape = RoundedCornerShape(24.dp),
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = selectedItem ?: "선택",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
                 items.forEach { item ->
                     DropdownMenuItem(
                         text = { Text(item, style = MaterialTheme.typography.bodyMedium) },
