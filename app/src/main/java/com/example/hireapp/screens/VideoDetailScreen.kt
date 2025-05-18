@@ -2,6 +2,7 @@ package com.example.hireapp.screens
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -83,8 +84,11 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
             db.collection("users").document(user.uid).get()
                 .addOnSuccessListener { doc ->
                     currentUserName = doc.getString("name") ?: "익명"
-                    currUserMajor = doc.getString("category.major") ?: "지정 없음"
-                    currUserSub = doc.getString("category.sub") ?: "지정 없음"
+                    val categoryMap = doc.get("category") as? Map<*, *>
+                    currUserMajor = categoryMap?.get("major") as? String ?: "지정 없음"
+                    currUserSub = categoryMap?.get("sub") as? String ?: "지정 없음"
+
+                    Log.d("Comment", "로그인한 유저 ㅅcategory: ${categoryMap}, ${currUserMajor}, ${currUserSub}")
                 }
                 .addOnFailureListener {
                     Toast.makeText(context, "유저 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -148,9 +152,9 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                 if (snapshot != null) {
                     comments.clear()
                     for (doc in snapshot.documents) {
+                        val major = doc.getString("major") ?: "지정 없음"
+                        val sub = doc.getString("sub") ?: "지정 없음"
                         val user = doc.getString("user") ?: "익명"
-                        val major = doc.getString("category.major") ?: "지정 없음"
-                        val sub = doc.getString("category.sub") ?: "지정 없음"
                         val text = doc.getString("text") ?: ""
                         comments.add(Comment(user = user, major = major, sub = sub, text = text))
                     }
