@@ -330,6 +330,14 @@ fun SignUpInterviewerScreen(navController: NavController, viewModel: SignUpModel
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Text(
+                text = "분야 선택",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(bottom = 16.dp)
+            )
             // 대분류 선택 카드
             Card(
                 modifier = Modifier
