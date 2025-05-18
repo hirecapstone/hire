@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -46,6 +47,7 @@ import kotlinx.coroutines.tasks.await
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.util.LoadingState
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.auth.FirebaseAuth
@@ -434,17 +436,24 @@ fun CheckQuestionScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        uploadResults(
-                            db               = db,
-                            auth             = FirebaseAuth.getInstance(),
-                            sessionId        = sessionId,
-                            questions        = questions,
-                            videoTitle       = videoTitle,
-                            recordedFiles    = recordedFiles,
-                            navController    = navController
-                        )
                         showTitleDialog = false
-                        navController.navigate("${Screen.ResultScreen.route}/$sessionId")
+                        scope.launch {
+                            val result = uploadResults(
+                                db               = db,
+                                auth             = FirebaseAuth.getInstance(),
+                                sessionId        = sessionId,
+                                questions        = questions,
+                                videoTitle       = videoTitle,
+                                recordedFiles    = recordedFiles,
+                                navController    = navController
+                            )
+                            if (result.isSuccess) {
+                                navController.navigate("${Screen.ResultScreen.route}/$sessionId")
+                            } else {
+                                Toast.makeText(context, "인터뷰 업로드에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                                navController.navigate(Screen.HomeAppl.route)
+                            }
+                        }
                     }) {
                         Text("저장")
                     }
@@ -485,7 +494,7 @@ private fun saveMediapipeResult(
         .addOnFailureListener { e -> Log.e("Mediapipe","저장 실패", e) }
 }
 
-private fun uploadResults(
+suspend fun uploadResults(
     db: FirebaseFirestore,
     auth: FirebaseAuth,
     sessionId: String,
@@ -493,58 +502,64 @@ private fun uploadResults(
     videoTitle: String,
     recordedFiles: List<File>,
     navController: NavController
-) {
-    val storageRef = FirebaseStorage.getInstance().reference
-    CoroutineScope(Dispatchers.IO).launch {
-        try {
-            // 1) 동영상 업로드
-            val videoUrls = mutableListOf<String>()
-            recordedFiles.forEachIndexed { idx, file ->
-                val uri      = Uri.fromFile(file)
-                val videoRef = storageRef.child("videos/$sessionId/${sessionId}_q${idx+1}.mp4")
-                videoRef.putFile(uri).await()
-                videoUrls += videoRef.downloadUrl.await().toString()
-            }
+): Result<Unit> {
+    return try {
+        LoadingState.show("정확한 피드백을 위해 영상을 분석 중입니다.\n1~2분 정도 소요될 수 있어요.")
 
-            // 2) mediapipe 데이터 읽기
-            val mediapipeData = db.collection("interview_mediapipe")
-                .document(sessionId)
-                .get()
-                .await()
-                .data
-                ?: emptyMap<String, Any>()
-
-            // 3) feedback 참조 저장
-            val feedbackRef = db.collection("interview_feedback").document(sessionId)
-
-            val categoryData = mapOf(
-                "major" to "지정 없음",
-                "sub" to "지정 없음"
-            )
-
-            // 4) 인터뷰 문서 저장
-            val videoData = mapOf(
-                "question" to questions,
-                "title" to videoTitle,
-                "category" to categoryData,
-                "uploadTime" to FieldValue.serverTimestamp(),
-                "user" to auth.currentUser?.uid,
-                "videos" to videoUrls.map { mapOf("fileUrl" to it) },
-                "mediapipe" to mediapipeData,
-                "feedback" to feedbackRef,
-                "public" to true
-            )
-            db.collection("interview")
-                .document(sessionId)
-                .set(videoData, SetOptions.merge())
-                .await()
-
-            withContext(Dispatchers.Main) {
-                navController.navigate("${Screen.ResultScreen.route}/$sessionId")
-            }
-        } catch (e: Exception) {
-            Log.e("UploadError", "업로드 실패", e)
+        val storageRef = FirebaseStorage.getInstance().reference
+        // 1) 동영상 업로드
+        val videoUrls = mutableListOf<String>()
+        recordedFiles.forEachIndexed { idx, file ->
+            val uri = Uri.fromFile(file)
+            val videoRef = storageRef.child("videos/$sessionId/${sessionId}_q${idx + 1}.mp4")
+            videoRef.putFile(uri).await()
+            videoUrls += videoRef.downloadUrl.await().toString()
         }
+
+        // 2) mediapipe 데이터 읽기
+        val mediapipeData = db.collection("interview_mediapipe")
+            .document(sessionId)
+            .get()
+            .await()
+            .data
+            ?: emptyMap<String, Any>()
+
+        // 3) feedback 참조 저장
+        val feedbackRef = db.collection("interview_feedback").document(sessionId)
+
+        val categoryData = mapOf(
+            "major" to "지정 없음",
+            "sub" to "지정 없음"
+        )
+
+        // 4) 인터뷰 문서 저장
+        val videoData = mapOf(
+            "question" to questions,
+            "title" to videoTitle,
+            "category" to categoryData,
+            "uploadTime" to FieldValue.serverTimestamp(),
+            "user" to auth.currentUser?.uid,
+            "videos" to videoUrls.map { mapOf("fileUrl" to it) },
+            "mediapipe" to mediapipeData,
+            "feedback" to feedbackRef,
+            "public" to true
+        )
+        db.collection("interview")
+            .document(sessionId)
+            .set(videoData, SetOptions.merge())
+            .await()
+
+        withContext(Dispatchers.Main) {
+            navController.navigate("${Screen.ResultScreen.route}/$sessionId")
+        }
+
+        db.collection("interview").document(sessionId).update("ready", true).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Log.e("UploadError", "업로드 실패", e)
+        Result.failure(e)
+    } finally {
+        LoadingState.hide()
     }
 }
 

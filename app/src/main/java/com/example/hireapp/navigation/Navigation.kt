@@ -2,6 +2,7 @@ package com.example.hireapp.navigation
 
 import android.util.Log
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -31,6 +32,8 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
         else -> Screen.Login.route  // 로그인 화면
     }
 
+    val sharedViewModel: SignUpModel = viewModel()
+
     Log.d("UserType", userType.toString())
     NavHost(
         navController = navController,
@@ -40,9 +43,11 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
         composable(Screen.SignUp.route) { SignUpScreen(navController) }
         composable(Screen.SignUpCommon.route + "/{role}") { backStackEntry ->
             val role = backStackEntry.arguments?.getString("role") ?: ""
-            SignUpCommonScreen(navController, role)
+            SignUpCommonScreen(navController, sharedViewModel, role)
         }
-        composable(Screen.SignUpInterviewer.route) { SignUpInterviewerScreen(navController) }
+        composable(Screen.SignUpInterviewer.route) {
+            SignUpInterviewerScreen(navController, sharedViewModel)
+        }
         composable(Screen.HomeAppl.route) { HomeApplScreen(navController) }
         composable(Screen.HomeIntr.route) { HomeIntrScreen(navController) }
         composable(Screen.MyPageAppl.route) { MyPageApplScreen(navController) }
