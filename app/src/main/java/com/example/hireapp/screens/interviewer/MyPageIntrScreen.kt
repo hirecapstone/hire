@@ -35,6 +35,9 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.hireapp.data.Category
+import com.example.hireapp.data.subCategory
+import androidx.compose.ui.unit.Dp
 
 @Composable
 fun MyPageIntrScreen(navController: NavController) {
@@ -57,6 +60,11 @@ fun MyPageIntrScreen(navController: NavController) {
     var showEditDialog by remember { mutableStateOf(false) }
 
     var likedVideos by remember { mutableStateOf<List<MyPageVideoItem>>(emptyList()) }
+
+    val categories = Category.entries.map { it.label }
+    val subJobsMap = subCategory
+    var major by remember { mutableStateOf<String?>(null) }
+    var sub by remember { mutableStateOf<String?>(null) }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -87,11 +95,15 @@ fun MyPageIntrScreen(navController: NavController) {
                 phoneNumber = docs.getString("phoneNumber") ?: ""
                 birthDate = docs.getString("birthDate") ?: ""
                 role = docs.getString("role") ?: ""
+                val categoryMap = docs.get("category") as? Map<*, *>
+                major = categoryMap?.get("major") as? String
+                sub = categoryMap?.get("sub") as? String
 
                 db.collection("interview").get()
                     .addOnSuccessListener { allDocs ->
                         val tempList = mutableListOf<MyPageVideoItem>()
-                        val dateFormat = SimpleDateFormat("yyyy년 MM월 dd일 HH:mm", Locale.getDefault())
+                        val dateFormat =
+                            SimpleDateFormat("yyyy년 MM월 dd일 HH:mm", Locale.getDefault())
 
                         allDocs.forEach { doc ->
                             doc.reference.collection("likes").document(user.uid).get()
@@ -99,14 +111,16 @@ fun MyPageIntrScreen(navController: NavController) {
                                     if (likeDoc.exists() && doc.getBoolean("public") == true) {
                                         val category = doc.get("category") as? Map<*, *>
                                         val date = doc.getTimestamp("uploadTime")?.toDate()
-                                        val formattedDate = date?.let { dateFormat.format(it) } ?: "날짜 없음"
+                                        val formattedDate =
+                                            date?.let { dateFormat.format(it) } ?: "날짜 없음"
 
                                         tempList.add(
                                             MyPageVideoItem(
                                                 id = doc.id,
                                                 title = doc.getString("title") ?: "제목 없음",
                                                 date = formattedDate,
-                                                major = category?.get("major") as? String ?: "대분류 없음",
+                                                major = category?.get("major") as? String
+                                                    ?: "대분류 없음",
                                                 minor = category?.get("sub") as? String ?: "소분류 없음",
                                                 isPublic = true
                                             )
@@ -115,7 +129,8 @@ fun MyPageIntrScreen(navController: NavController) {
                                     }
                                 }
                                 .addOnFailureListener {
-                                    Toast.makeText(context, "좋아요 데이터 조회 실패", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "좋아요 데이터 조회 실패", Toast.LENGTH_SHORT)
+                                        .show()
                                 }
                         }
                         isLoading = false
@@ -142,6 +157,7 @@ fun MyPageIntrScreen(navController: NavController) {
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
+                // 1. 프로필 정보 Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -159,10 +175,20 @@ fun MyPageIntrScreen(navController: NavController) {
                         Text("생년월일: $birthDate", style = MaterialTheme.typography.bodyMedium)
                         Text("이메일: $email", style = MaterialTheme.typography.bodyMedium)
                         Text("전화번호: $phoneNumber", style = MaterialTheme.typography.bodyMedium)
-                        Text("역할: ${if (role == "면접자") "면접자" else "면접관"}", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "역할: ${if (role == "면접자") "면접자" else "면접관"}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        if (role == "면접관") {
+                            Text(
+                                "분야: ${major ?: "지정 없음"} / ${sub ?: "지정 없음"}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                 }
 
+                // 2. 버튼 Row (★ 이 부분이 Row 안에 들어가지 않게!! Column 바로 밑에!)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -183,7 +209,7 @@ fun MyPageIntrScreen(navController: NavController) {
                     }
                 }
 
-                // 좋아요 영상 리스트 표시
+                // 3. 좋아요 영상 리스트
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(likedVideos) { video ->
                         Card(
@@ -197,7 +223,11 @@ fun MyPageIntrScreen(navController: NavController) {
                             colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(video.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(
+                                    video.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
                                 Text("촬영일: ${video.date}")
                                 Text("대분류: ${video.major} / 소분류: ${video.minor}")
                                 Text(if (video.isPublic) "공개" else "비공개")
@@ -206,6 +236,7 @@ fun MyPageIntrScreen(navController: NavController) {
                     }
                 }
 
+                // 4. 다이얼로그들
                 if (showLogoutDialog) {
                     AlertDialog(
                         onDismissRequest = { showLogoutDialog = false },
@@ -234,21 +265,66 @@ fun MyPageIntrScreen(navController: NavController) {
                         title = { Text("개인정보 수정") },
                         text = {
                             Column {
-                                TextField(value = name, onValueChange = { name = it }, label = { Text("이름") })
-                                TextField(value = email, onValueChange = { email = it }, label = { Text("이메일") })
-                                TextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("전화번호") })
+                                TextField(
+                                    value = name,
+                                    onValueChange = { name = it },
+                                    label = { Text("이름") })
+                                TextField(
+                                    value = email,
+                                    onValueChange = { email = it },
+                                    label = { Text("이메일") })
+                                TextField(
+                                    value = phoneNumber,
+                                    onValueChange = { phoneNumber = it },
+                                    label = { Text("전화번호") })
+                                if (role == "면접관") {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("분야(대분류)", style = MaterialTheme.typography.bodyMedium)
+                                    DropdownMenuWithFixedTextSize(
+                                        label = "",
+                                        items = categories,
+                                        selectedItem = major,
+                                        onItemSelected = {
+                                            major = it
+                                            sub = null
+                                        },
+                                        width = 180.dp
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("직군(세부)", style = MaterialTheme.typography.bodyMedium)
+                                    DropdownMenuWithFixedTextSize(
+                                        label = "",
+                                        items = subJobsMap[major] ?: emptyList(),
+                                        selectedItem = sub,
+                                        onItemSelected = { sub = it },
+                                        width = 180.dp
+                                    )
+                                }
                             }
                         },
                         confirmButton = {
                             Button(onClick = {
+                                val updateMap = mutableMapOf<String, Any>(
+                                    "name" to name,
+                                    "email" to email,
+                                    "phoneNumber" to phoneNumber
+                                )
+                                if (role == "면접관") {
+                                    updateMap["category"] = mapOf(
+                                        "major" to (major ?: "지정 없음"),
+                                        "sub" to (sub ?: "지정 없음")
+                                    )
+                                }
                                 db.collection("users").document(user.uid)
-                                    .update(mapOf("name" to name, "email" to email, "phoneNumber" to phoneNumber))
+                                    .update(updateMap)
                                     .addOnSuccessListener {
-                                        Toast.makeText(context, "수정 완료", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "수정 완료", Toast.LENGTH_SHORT)
+                                            .show()
                                         showEditDialog = false
                                     }
                                     .addOnFailureListener {
-                                        Toast.makeText(context, "수정 실패", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "수정 실패", Toast.LENGTH_SHORT)
+                                            .show()
                                     }
                             }) {
                                 Text("저장")
@@ -270,4 +346,68 @@ fun MyPageIntrScreen(navController: NavController) {
 @Composable
 fun PreviewMyPageIntrScreen() {
     MyPageIntrScreen(navController = rememberNavController())
+}
+
+@Composable
+fun DropdownMenuWithFixedTextSize(
+    label: String,
+    items: List<String>,
+    selectedItem: String?,
+    onItemSelected: (String) -> Unit,
+    width: Dp
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        if (label.isNotEmpty()) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .width(width)
+                .height(48.dp)
+        ) {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier
+                    .fillMaxSize(),
+                shape = RoundedCornerShape(24.dp),
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = selectedItem ?: "선택",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                items.forEach { item ->
+                    DropdownMenuItem(
+                        text = { Text(item, style = MaterialTheme.typography.bodyMedium) },
+                        onClick = {
+                            onItemSelected(item)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
