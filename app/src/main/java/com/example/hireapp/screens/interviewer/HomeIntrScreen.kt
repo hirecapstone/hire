@@ -84,9 +84,11 @@ fun HomeIntrScreen(navController: NavController) {
             try {
                 val doc = Firebase.firestore.collection("users").document(user.uid).get().await()
 
-                val major = doc.getString("category.major")
-                val sub = doc.getString("category.sub")
+                val categoryMap = doc.get("category") as? Map<*, *>
+                val major = categoryMap?.get("major") as? String ?: "지정 없음"
+                val sub = categoryMap?.get("sub") as? String ?: "지정 없음"
 
+                Log.d("Inter-home", "${categoryMap}")
                 Log.d("Inter-home", "major = ${major}, sub = ${sub}")
 
                 videoList = fetchPublicVideos(

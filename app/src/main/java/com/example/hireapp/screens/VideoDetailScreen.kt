@@ -2,6 +2,7 @@ package com.example.hireapp.screens
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -12,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -92,6 +92,8 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
     var comments = remember { mutableStateListOf<Comment>() }
     var inputText by remember { mutableStateOf("") }
     var currentUserName by remember { mutableStateOf("me") }
+    var currUserMajor by remember { mutableStateOf("지정 없음") }
+    var currUserSub by remember { mutableStateOf("지정 없음") }
     val listState = rememberLazyListState()
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
@@ -106,6 +108,11 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
             db.collection("users").document(user.uid).get()
                 .addOnSuccessListener { doc ->
                     currentUserName = doc.getString("name") ?: "익명"
+                    val categoryMap = doc.get("category") as? Map<*, *>
+                    currUserMajor = categoryMap?.get("major") as? String ?: "지정 없음"
+                    currUserSub = categoryMap?.get("sub") as? String ?: "지정 없음"
+
+                    Log.d("Comment", "로그인한 유저 ㅅcategory: ${categoryMap}, ${currUserMajor}, ${currUserSub}")
                 }
                 .addOnFailureListener {
                     Toast.makeText(context, "유저 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -169,9 +176,11 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                 if (snapshot != null) {
                     comments.clear()
                     for (doc in snapshot.documents) {
+                        val major = doc.getString("major") ?: "지정 없음"
+                        val sub = doc.getString("sub") ?: "지정 없음"
                         val user = doc.getString("user") ?: "익명"
                         val text = doc.getString("text") ?: ""
-                        comments.add(Comment(user, text))
+                        comments.add(Comment(user = user, major = major, sub = sub, text = text))
                     }
                 }
             }
@@ -306,9 +315,13 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
-                    itemsIndexed(comments) { index, comment ->
+                    itemsIndexed(comments) { _, comment ->
                         Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                            Text(text = comment.user, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = comment.user, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = "${comment.major} | ${comment.sub}", color = Color.Gray)
+                            }
                             Text(text = comment.text)
                         }
                     }
@@ -328,7 +341,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     )
                     IconButton(onClick = {
                         if (inputText.isNotBlank()) {
-                            val newComment = Comment(currentUserName, inputText)
+                            val newComment = Comment(currentUserName, currUserMajor, currUserSub, inputText)
                             coroutineScope.launch {
                                 try {
                                     db.collection("interview")
@@ -337,6 +350,8 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                                         .add(mapOf(
                                             "user" to newComment.user,
                                             "text" to newComment.text,
+                                            "major" to newComment.major,
+                                            "sub" to newComment.sub,
                                             "timestamp" to System.currentTimeMillis()
                                         ))
                                     inputText = ""
