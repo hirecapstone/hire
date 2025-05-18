@@ -61,7 +61,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
             Spacer(modifier = Modifier.height(200.dp))
 
             Text(
-                text = "면접 분석 프로그램",
+                text = "AI 면접 관리 프로그램",
                 fontSize = 38.sp,
                 textAlign = TextAlign.Center
             )
