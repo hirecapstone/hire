@@ -8,7 +8,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.ktx.firestore
@@ -40,6 +42,8 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) {
 
     val scrollState = rememberScrollState()
 
+    val options = (1..10).toList()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -47,14 +51,51 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("생성할 질문 개수: $questionCount", style = MaterialTheme.typography.titleMedium)
-        Slider(
-            value = questionCount.toFloat(),
-            onValueChange = { questionCount = it.roundToInt() },
-            valueRange = 1f..10f,
-            steps = 8, // 10단계 (1~10)
-            modifier = Modifier.fillMaxWidth()
-        )
+        //
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "생성할 질문 개수",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "1",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.width(24.dp)
+                )
+
+                Slider(
+                    value = questionCount.toFloat(),
+                    onValueChange = { questionCount = it.roundToInt() },
+                    valueRange = 1f..10f,
+                    steps = 8,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                )
+
+                Text(
+                    text = "10",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.width(24.dp),
+                    textAlign = TextAlign.End
+                )
+            }
+
+            Text(
+                text = "$questionCount 개 선택됨",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 4.dp)
+            )
+        }
+        //
 
         DropdownMenuBox("대분류", categories, selectedCategory) {
             selectedCategory = it
