@@ -1,10 +1,13 @@
 package com.example.hireapp.screens.login
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RestrictTo
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -19,9 +22,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -29,11 +34,26 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.hireapp.data.Category
+import com.example.hireapp.data.subCategory
+import com.example.hireapp.navigation.Screen
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+
+class SignUpModel : ViewModel() {
+    var name by mutableStateOf("")
+    var birthDate by mutableStateOf("")
+    var phoneNumber by mutableStateOf("")
+    var email by mutableStateOf("")
+    var password by mutableStateOf("")
+    var role by mutableStateOf("")
+}
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
@@ -145,21 +165,24 @@ fun SignUpScreen(navController: NavController) {
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-fun SignUpCommonScreen(navController: NavController, role: String) {
-    var name by remember { mutableStateOf("") }
-    var birthDate by remember { mutableStateOf("") }
-    var phoneNumber by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+fun SignUpCommonScreen(navController: NavController, viewModel: SignUpModel, role: String) {
+    var name by remember { mutableStateOf(viewModel.name) }
+    var birthDate by remember { mutableStateOf(viewModel.birthDate) }
+    var phoneNumber by remember { mutableStateOf(viewModel.phoneNumber) }
+    var email by remember { mutableStateOf(viewModel.email) }
+    var password by remember { mutableStateOf(viewModel.password) }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Scaffold {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -221,8 +244,8 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
                 }
             },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(), modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
+                    .fillMaxWidth()
+                    .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(8.dp))
             TextField(value = confirmPassword, onValueChange = { confirmPassword = it }, label = { Text("비밀번호 확인") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), leadingIcon = {
                 Icon(Icons.Rounded.Lock, contentDescription = "")
@@ -242,8 +265,8 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
                 }
             },
                 visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(), modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
+                    .fillMaxWidth()
+                    .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(onClick = {
@@ -252,36 +275,32 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
                     return@Button
                 }
 
-                Firebase.auth.createUserWithEmailAndPassword(email, password)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            val user = Firebase.auth.currentUser
-                            val userId = user?.uid ?: ""
-                            val db = Firebase.firestore
-                            val userData = hashMapOf(
-                                "name" to name,
-                                "birthDate" to birthDate,
-                                "phoneNumber" to phoneNumber,
-                                "email" to email,
-                                "role" to role
-                            )
+                if (role == "면접관") {
+                    viewModel.name = name
+                    viewModel.birthDate = birthDate
+                    viewModel.phoneNumber = phoneNumber
+                    viewModel.email = email
+                    viewModel.password = password
+                    viewModel.role = role
 
-                            db.collection("users").document(userId).set(userData)
-                                .addOnSuccessListener {
-                                    Toast.makeText(context, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
-                                    if (role == "면접자") {
-                                        navController.navigate("login")
-                                    } else {
-                                        navController.navigate("login") //signup_interviewer 오류나서 login으로 수정
-                                    }
-                                }
-                                .addOnFailureListener { e ->
-                                    Toast.makeText(context, "회원가입에 실패했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
-                        } else {
-                            Toast.makeText(context, "회원가입에 실패했습니다: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                    navController.navigate(Screen.SignUpInterviewer.route)
+                } else {
+                    scope.launch {
+                        val result = saveUser(
+                            email = email,
+                            password = password,
+                            name = name,
+                            birthDate = birthDate,
+                            phoneNumber = phoneNumber,
+                            role = role
+                        )
+
+                        if (result.isSuccess) {
+                            navController.navigate(Screen.Login.route)
+                            Toast.makeText(context, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
                         }
                     }
+                }
             }) {
                 Text(if (role == "면접자") "회원가입 완료" else "다음")
             }
@@ -291,39 +310,17 @@ fun SignUpCommonScreen(navController: NavController, role: String) {
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-fun SignUpInterviewerScreen(navController: NavController) {
+fun SignUpInterviewerScreen(navController: NavController, viewModel: SignUpModel) {
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedJob by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
-    val user = Firebase.auth.currentUser
-    val userId = user?.uid ?: ""
+    val scope = rememberCoroutineScope()
 
-    val categories = listOf(
-        "IT/소프트웨어",
-        "디자인",
-        "마케팅",
-        "영업",
-        "금융",
-        "인사",
-        "의료",
-        "교육",
-        "제조",
-        "법률"
-    )
+    val categories = Category.entries.map{it.label}
+    val subJobsMap = subCategory
 
-    val subJobsMap = mapOf(
-        "IT/소프트웨어" to listOf("프로그래머", "데이터 엔지니어", "AI 전문가"),
-        "디자인" to listOf("UX 디자이너", "그래픽 디자이너", "영상 편집자"),
-        "마케팅" to listOf("디지털 마케터", "브랜드 매니저", "SEO 전문가"),
-        "영업" to listOf("B2B 영업", "해외 영업", "세일즈 매니저"),
-        "금융" to listOf("회계사", "재무 분석가", "투자 컨설턴트"),
-        "인사" to listOf("채용 담당자", "HRBP", "교육 담당자"),
-        "의료" to listOf("의사", "간호사", "물리치료사"),
-        "교육" to listOf("교사", "강사", "콘텐츠 제작자"),
-        "제조" to listOf("기계 엔지니어", "전자 엔지니어", "품질 전문가"),
-        "법률" to listOf("변호사", "법무사", "컨설턴트")
-    )
+    Log.d("SignUp", "면접관 회원가입 시작, sc: ${selectedCategory}, sj: ${selectedJob}")
 
     Scaffold {
         Column(
@@ -333,49 +330,138 @@ fun SignUpInterviewerScreen(navController: NavController) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 대분류 선택
-            DropdownMenuWithFixedTextSize(
-                label = "대분류",
-                items = categories,
-                selectedItem = selectedCategory,
-                onItemSelected = { selectedCategory = it },
-                width = 240.dp
+            Text(
+                text = "분야 선택",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(bottom = 16.dp)
             )
+            // 대분류 선택 카드
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(6.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.category1),
+                        contentDescription = null,
+                        modifier = Modifier.size(60.dp)
+                    )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "대분류",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.width(70.dp),
+                        fontWeight = FontWeight.SemiBold
+                    )
 
-            // 세부 직군
-            DropdownMenuWithFixedTextSize(
-                label = "세부 직군",
-                items = subJobsMap[selectedCategory] ?: emptyList(),
-                selectedItem = selectedJob,
-                onItemSelected = { selectedJob = it },
-                width = 240.dp
-            )
+                    Spacer(modifier = Modifier.width(24.dp))
+
+                    DropdownMenuWithFixedTextSize(
+                        label = "",
+                        items = categories,
+                        selectedItem = selectedCategory,
+                        onItemSelected = { selectedCategory = it },
+                        width = 150.dp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 세부 직군 선택 카드
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(6.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.category2),
+                        contentDescription = null,
+                        modifier = Modifier.size(60.dp)
+                    )
+
+                    Text(
+                        text = "세부 직군",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.width(70.dp),
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(modifier = Modifier.width(24.dp))
+
+                    DropdownMenuWithFixedTextSize(
+                        label = "",
+                        items = subJobsMap[selectedCategory] ?: emptyList(),
+                        selectedItem = selectedJob,
+                        onItemSelected = { selectedJob = it },
+                        width = 150.dp
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // 회원가입 버튼
             Button(
                 onClick = {
                     if (selectedCategory != null && selectedJob != null) {
-                        val db = Firebase.firestore
-                        val interviewerData = mapOf(
-                            "category" to selectedCategory,
-                            "job" to selectedJob
-                        )
+                        Log.d("SignUp", "면접관 회원가입, sc: ${selectedCategory}, sj: ${selectedJob}")
+                        val major = selectedCategory.toString()
+                        val sub = selectedJob.toString()
 
-                        db.collection("users").document(userId).update(interviewerData)
-                            .addOnSuccessListener {
+                        Log.d("SignUp", "viewModel: ${viewModel.email}, ${viewModel.password}")
+
+                        scope.launch {
+                            val result = saveUser(
+                                email = viewModel.email,
+                                password = viewModel.password,
+                                name = viewModel.name,
+                                birthDate = viewModel.birthDate,
+                                phoneNumber = viewModel.phoneNumber,
+                                role = viewModel.role,
+                                major = major,
+                                sub = sub
+                            )
+
+                            if (result.isSuccess) {
+                                navController.navigate(Screen.Login.route)
                                 Toast.makeText(context, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
-                                navController.navigate("login")
+                            } else {
+                                Toast.makeText(context, "회원가입에 실패했습니다.", Toast.LENGTH_SHORT).show()
                             }
-                            .addOnFailureListener { e ->
-                                Toast.makeText(context, "회원가입에 실패했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
-                            }
+                        }
                     }
                 },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF87CEEB),
+                    contentColor = Color.White
+                ),
                 enabled = selectedCategory != null && selectedJob != null,
-                modifier = Modifier.width(200.dp).height(48.dp)
+                modifier = Modifier
+                    .width(200.dp)
+                    .height(48.dp)
+                    .align(Alignment.CenterHorizontally)
             ) {
                 Text("회원가입 완료")
             }
@@ -394,28 +480,45 @@ fun DropdownMenuWithFixedTextSize(
     var expanded by remember { mutableStateOf(false) }
 
     Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        if (label.isNotEmpty()) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
         Box(
             modifier = Modifier
                 .width(width)
                 .height(48.dp)
-                .background(MaterialTheme.colorScheme.primaryContainer)
         ) {
-            Button(
+            OutlinedButton(
                 onClick = { expanded = true },
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Text(
-                    text = selectedItem ?: "선택",
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1
+                modifier = Modifier
+                    .fillMaxSize(),
+                shape = RoundedCornerShape(24.dp),
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = selectedItem ?: "선택",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
                 items.forEach { item ->
                     DropdownMenuItem(
                         text = { Text(item, style = MaterialTheme.typography.bodyMedium) },
@@ -430,20 +533,75 @@ fun DropdownMenuWithFixedTextSize(
     }
 }
 
+suspend fun saveUser(
+    email: String,
+    password: String,
+    name: String,
+    birthDate: String,
+    phoneNumber: String,
+    role: String,
+    major: String = "지정 없음",
+    sub: String= "지정 없음"
+    ): Result<Unit> {
+    return try {
+        val authResult = Firebase.auth.createUserWithEmailAndPassword(email, password).await()
+        val user = authResult.user ?: throw Exception("사용자 정보 없음")
+        val userId = user.uid
+        val db = Firebase.firestore
+
+        val userData = mapOf(
+            "name" to name,
+            "birthDate" to birthDate,
+            "phoneNumber" to phoneNumber,
+            "email" to email,
+            "role" to role,
+            "category" to mapOf(
+                "major" to major,
+                "sub" to sub
+            )
+        )
+
+        Log.d("SignUp", "유저데이터: $userData")
+
+        db.collection("users").document(userId).set(userData).await()
+
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Log.e("SignUp", "회원가입 실패: ${e.message}", e)
+        Result.failure(e)
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewSignUpScreen() {
     SignUpScreen(navController = rememberNavController())
 }
+/*
 
 @Preview(showBackground = true)
 @Composable
 fun PreviewSignUpCommonScreen() {
-    SignUpCommonScreen(navController = rememberNavController(), role = "면접자")
+    val mockViewModel = SignUpModel().apply {
+        name = "example"
+        email = "test@example.com"
+        role = "면접관"
+    }
+
+    SignUpCommonScreen(navController = rememberNavController(), viewModel = mockViewModel, role = "면접자")
 }
 
 @Preview(showBackground = true)
 @Composable
 fun PreviewSignUpInterviewerScreen() {
-    SignUpInterviewerScreen(navController = rememberNavController())
-}
+    val mockViewModel = SignUpModel().apply {
+        name = "example"
+        email = "tester@domain.com"
+        role = "면접관"
+        birthDate = "1995/05/18"
+        phoneNumber = "01012345678"
+        password = "password123"
+    }
+
+    SignUpInterviewerScreen(navController = rememberNavController(), viewModel = mockViewModel)
+}*/

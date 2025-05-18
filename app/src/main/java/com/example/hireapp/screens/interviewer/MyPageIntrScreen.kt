@@ -12,14 +12,15 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -27,11 +28,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.example.hireapp.models.VideoItem
+import com.example.hireapp.models.MyPageVideoItem
 import com.example.hireapp.navigation.Screen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun MyPageIntrScreen(navController: NavController) {
@@ -40,19 +43,20 @@ fun MyPageIntrScreen(navController: NavController) {
     val user = auth.currentUser
     val context = LocalContext.current
 
-    var userDoc by remember { mutableStateOf<DocumentSnapshot?>(null)}
+    var userDoc by remember { mutableStateOf<DocumentSnapshot?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    // Fields for editing
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var birthDate by remember { mutableStateOf("") }
     var role by remember { mutableStateOf("") }
     var showEditDialog by remember { mutableStateOf(false) }
+
+    var likedVideos by remember { mutableStateOf<List<MyPageVideoItem>>(emptyList()) }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -83,11 +87,47 @@ fun MyPageIntrScreen(navController: NavController) {
                 phoneNumber = docs.getString("phoneNumber") ?: ""
                 birthDate = docs.getString("birthDate") ?: ""
                 role = docs.getString("role") ?: ""
-                isLoading = false
-            }
 
-            .addOnFailureListener { task ->
+                db.collection("interview").get()
+                    .addOnSuccessListener { allDocs ->
+                        val tempList = mutableListOf<MyPageVideoItem>()
+                        val dateFormat = SimpleDateFormat("yyyy년 MM월 dd일 HH:mm", Locale.getDefault())
+
+                        allDocs.forEach { doc ->
+                            doc.reference.collection("likes").document(user.uid).get()
+                                .addOnSuccessListener { likeDoc ->
+                                    if (likeDoc.exists() && doc.getBoolean("public") == true) {
+                                        val category = doc.get("category") as? Map<*, *>
+                                        val date = doc.getTimestamp("uploadTime")?.toDate()
+                                        val formattedDate = date?.let { dateFormat.format(it) } ?: "날짜 없음"
+
+                                        tempList.add(
+                                            MyPageVideoItem(
+                                                id = doc.id,
+                                                title = doc.getString("title") ?: "제목 없음",
+                                                date = formattedDate,
+                                                major = category?.get("major") as? String ?: "대분류 없음",
+                                                minor = category?.get("sub") as? String ?: "소분류 없음",
+                                                isPublic = true
+                                            )
+                                        )
+                                        likedVideos = tempList.toList()
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    Toast.makeText(context, "좋아요 데이터 조회 실패", Toast.LENGTH_SHORT).show()
+                                }
+                        }
+                        isLoading = false
+                    }
+                    .addOnFailureListener {
+                        Toast.makeText(context, "영상 데이터를 불러오는 데 실패했습니다.", Toast.LENGTH_SHORT).show()
+                        isLoading = false
+                    }
+            }
+            .addOnFailureListener {
                 Toast.makeText(context, "유저 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                isLoading = false
             }
     }
 
@@ -100,7 +140,7 @@ fun MyPageIntrScreen(navController: NavController) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
             ) {
                 Row(
                     modifier = Modifier
@@ -111,33 +151,8 @@ fun MyPageIntrScreen(navController: NavController) {
                     Image(
                         painter = painterResource(id = com.example.hireapp.R.drawable.info),
                         contentDescription = "User Image",
-                        modifier = Modifier
-                            .size(96.dp)
+                        modifier = Modifier.size(96.dp)
                     )
-//                    {
-//                        bitmap?.let {
-//                            Image(
-//                                bitmap = it.asImageBitmap(),
-//                                contentDescription = "User Image",
-//                                modifier = Modifier
-//                                    .size(64.dp)
-//                                    .clickable { launcher.launch("image/*") }
-//                                    .background(Color.Gray, CircleShape)
-//                            )
-//                        } ?: Box(
-//                            modifier = Modifier
-//                                .size(64.dp)
-//                                .clickable { launcher.launch("image/*") }
-//                                .background(Color.Gray, CircleShape),
-//                            contentAlignment = Alignment.Center
-//                        ) {
-//                            Text(
-//                                text = "이미지 추가",
-//                                color = Color.White,
-//                                modifier = Modifier.align(Alignment.Center)
-//                            )
-//                        }
-//                    }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text("이름: $name", style = MaterialTheme.typography.titleMedium)
@@ -160,12 +175,34 @@ fun MyPageIntrScreen(navController: NavController) {
                     ) {
                         Text("개인정보 수정")
                     }
-
                     Button(
                         onClick = { showLogoutDialog = true },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("로그아웃")
+                    }
+                }
+
+                // 좋아요 영상 리스트 표시
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(likedVideos) { video ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clickable {
+                                    navController.navigate("${Screen.VideoDetail.route}/${video.id}")
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(video.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("촬영일: ${video.date}")
+                                Text("대분류: ${video.major} / 소분류: ${video.minor}")
+                                Text(if (video.isPublic) "공개" else "비공개")
+                            }
+                        }
                     }
                 }
 
@@ -190,41 +227,22 @@ fun MyPageIntrScreen(navController: NavController) {
                         }
                     )
                 }
-                // 개인정보 수정 다이얼로그
+
                 if (showEditDialog) {
                     AlertDialog(
                         onDismissRequest = { showEditDialog = false },
                         title = { Text("개인정보 수정") },
                         text = {
                             Column {
-                                TextField(
-                                    value = name,
-                                    onValueChange = { name = it },
-                                    label = { Text("이름") }
-                                )
-                                TextField(
-                                    value = email,
-                                    onValueChange = { email = it },
-                                    label = { Text("이메일") }
-                                )
-                                TextField(
-                                    value = phoneNumber,
-                                    onValueChange = { phoneNumber = it },
-                                    label = { Text("전화번호") }
-                                )
+                                TextField(value = name, onValueChange = { name = it }, label = { Text("이름") })
+                                TextField(value = email, onValueChange = { email = it }, label = { Text("이메일") })
+                                TextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("전화번호") })
                             }
                         },
                         confirmButton = {
                             Button(onClick = {
-                                // Firestore 업데이트
                                 db.collection("users").document(user.uid)
-                                    .update(
-                                        mapOf(
-                                            "name" to name,
-                                            "email" to email,
-                                            "phoneNumber" to phoneNumber
-                                        )
-                                    )
+                                    .update(mapOf("name" to name, "email" to email, "phoneNumber" to phoneNumber))
                                     .addOnSuccessListener {
                                         Toast.makeText(context, "수정 완료", Toast.LENGTH_SHORT).show()
                                         showEditDialog = false

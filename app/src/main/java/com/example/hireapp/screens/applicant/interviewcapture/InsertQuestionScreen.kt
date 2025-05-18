@@ -33,13 +33,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import com.google.gson.Gson
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+
+// Import 구문 추가
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 
 @Composable
-fun InsertQuestionScreen(navController: NavController) {
+fun InsertQuestionScreen(
+    navController: NavController,
+    onNext: (selectedMajor: String, selectedSub: String, generatedSessionId: String, enteredQuestions: List<String>) -> Unit // enteredQuestions 추가
+) {
+    // 타입 명시적으로 지정
     val questionList = remember { mutableStateListOf<String>() }
     if (questionList.isEmpty()) {
         questionList.add("")
     }
+
+    // 추가된 값들
+    var selectedMajor = remember { mutableStateOf("컴퓨터공학") }
+    var selectedSub = remember { mutableStateOf("AI") }
+    var generatedSessionId = remember { mutableStateOf("session123") }
 
     Scaffold(
         topBar = {
@@ -60,7 +78,6 @@ fun InsertQuestionScreen(navController: NavController) {
                 }
             )
         }
-
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -68,48 +85,63 @@ fun InsertQuestionScreen(navController: NavController) {
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
+            // LazyColumn으로 질문 목록을 렌더링
             LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(questionList) { index, question ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // 질문을 위한 TextField
                         TextField(
                             value = question,
                             onValueChange = { questionList[index] = it },
                             label = { Text("질문 ${index + 1}") },
                             modifier = Modifier.weight(1f)
                         )
+                        // 삭제 버튼
                         IconButton(onClick = { questionList.removeAt(index) }) {
                             Icon(Icons.Default.Delete, contentDescription = "삭제 아이콘")
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Button(
+                            onClick = { questionList.add("") },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Image(
+                                    painter = painterResource(id = com.example.hireapp.R.drawable.add),
+                                    contentDescription = "질문 추가 이미지",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("질문 추가", color = Color.Black)
+                            }
+                        }
+                    }
+                }
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.End
             ) {
-                Button(onClick = { questionList.add("") }, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(id = com.example.hireapp.R.drawable.add),
-                            contentDescription = "질문 추가 이미지",
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("추가", color = Color.Black)
-                    }
-                }
                 Button(
                     onClick = {
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("questions", ArrayList(questionList))
-                        navController.navigate(Screen.CheckQuestion.route)
-                    }, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                        onNext(selectedMajor.value, selectedSub.value, generatedSessionId.value, questionList)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(
@@ -124,10 +156,20 @@ fun InsertQuestionScreen(navController: NavController) {
             }
         }
     }
+
 }
 
 @Preview(showBackground = true)
 @Composable
 fun PreviewInsertQuestionScreen() {
-    InsertQuestionScreen(navController = rememberNavController())
+    InsertQuestionScreen(
+        navController = rememberNavController(),
+        onNext = { selectedMajor, selectedSub, generatedSessionId, enteredQuestions ->
+            println("Selected Major: $selectedMajor")
+            println("Selected Sub: $selectedSub")
+            println("Generated Session ID: $generatedSessionId")
+            println("Entered Questions: $enteredQuestions")
+        }
+    )
 }
+

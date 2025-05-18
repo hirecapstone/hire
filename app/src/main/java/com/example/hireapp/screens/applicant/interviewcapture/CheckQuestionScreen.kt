@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -44,7 +45,9 @@ import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
 import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.util.LoadingState
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.auth.FirebaseAuth
@@ -57,11 +60,13 @@ import java.io.File
 
 @SuppressLint("UnsafeOptInUsageError")
 @Composable
-fun CheckQuestionScreen(navController: NavController) {
-    // 질문, 인덱스, 타이머
-    val questions    = navController.previousBackStackEntry
-        ?.savedStateHandle
-        ?.get<ArrayList<String>>("questions") ?: arrayListOf()
+fun CheckQuestionScreen(
+    navController: NavController,
+    sessionId: String,
+    major: String,
+    sub: String,
+    questions: List<String>
+) {
     var currentIndex by remember { mutableStateOf(0) }
     var isReady      by remember { mutableStateOf(true) }
     var timer        by remember { mutableStateOf(30) }
@@ -124,9 +129,6 @@ fun CheckQuestionScreen(navController: NavController) {
                     PackageManager.PERMISSION_GRANTED
         )
     }
-
-    var isUploading by remember { mutableStateOf(false) } // 업로드 중 상태 추가
-    var uploadProgress by remember { mutableStateOf(0f) } // 업로드 진행 상태 (0.0 ~ 1.0)
 
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -414,10 +416,10 @@ fun CheckQuestionScreen(navController: NavController) {
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
-    }
+        }
         if (showTitleDialog) {
             AlertDialog(
-                onDismissRequest = { /* 다이얼로그 닫기 방지 */ },
+                onDismissRequest = { },
                 title = { Text("영상 제목 작성") },
                 text = {
                     Column {
@@ -434,25 +436,22 @@ fun CheckQuestionScreen(navController: NavController) {
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        // FeedbackScreen으로 즉시 이동
-                        navController.navigate("feedback_screen/$sessionId")
-
-                        // 업로드 작업 비동기로 진행
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                uploadResults(
-                                    db = db,
-                                    auth = FirebaseAuth.getInstance(),
-                                    sessionId = sessionId,
-                                    questions = questions,
-                                    videoTitle = videoTitle,
-                                    recordedFiles = recordedFiles,
-                                    onProgress = { progress ->
-                                        uploadProgress = progress // 진행 상태 업데이트
-                                    }
-                                )
-                            } catch (e: Exception) {
-                                Log.e("UploadError", "업로드 중 오류 발생: ${e.message}")
+                        showTitleDialog = false
+                        scope.launch {
+                            val result = uploadResults(
+                                db               = db,
+                                auth             = FirebaseAuth.getInstance(),
+                                sessionId        = sessionId,
+                                questions        = questions,
+                                videoTitle       = videoTitle,
+                                recordedFiles    = recordedFiles,
+                                navController    = navController
+                            )
+                            if (result.isSuccess) {
+                                navController.navigate("${Screen.ResultScreen.route}/$sessionId")
+                            } else {
+                                Toast.makeText(context, "인터뷰 업로드에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                                navController.navigate(Screen.HomeAppl.route)
                             }
                         }
                     }) {
@@ -461,7 +460,6 @@ fun CheckQuestionScreen(navController: NavController) {
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        // 취소 시 바로 홈 화면으로 이동
                         recordedFiles.clear()
                         showTitleDialog = false
                         navController.navigate(Screen.HomeAppl.route)
@@ -496,55 +494,49 @@ private fun saveMediapipeResult(
         .addOnFailureListener { e -> Log.e("Mediapipe","저장 실패", e) }
 }
 
-private suspend fun uploadResults(
+suspend fun uploadResults(
     db: FirebaseFirestore,
     auth: FirebaseAuth,
     sessionId: String,
     questions: List<String>,
     videoTitle: String,
     recordedFiles: List<File>,
-    onProgress: (Float) -> Unit // 업로드 진행 상태 콜백
-) {
-    val storageRef = FirebaseStorage.getInstance().reference
-    try {
+    navController: NavController
+): Result<Unit> {
+    return try {
+        LoadingState.show("정확한 피드백을 위해 영상을 분석 중입니다.\n1~2분 정도 소요될 수 있어요.")
+
+        val storageRef = FirebaseStorage.getInstance().reference
+        // 1) 동영상 업로드
         val videoUrls = mutableListOf<String>()
-        val totalFiles = recordedFiles.size
-
-        for ((idx, file) in recordedFiles.withIndex()) {
-            if (!file.exists()) {
-                Log.e("UploadError", "파일이 존재하지 않습니다: ${file.absolutePath}")
-                continue
-            }
-
+        recordedFiles.forEachIndexed { idx, file ->
             val uri = Uri.fromFile(file)
             val videoRef = storageRef.child("videos/$sessionId/${sessionId}_q${idx + 1}.mp4")
-
-            // 업로드 진행 상태 추적
-            val uploadTask = videoRef.putFile(uri)
-            uploadTask.addOnProgressListener { taskSnapshot ->
-                val progress = taskSnapshot.bytesTransferred.toFloat() / taskSnapshot.totalByteCount
-                onProgress(((idx + progress) / totalFiles)) // 전체 진행률 계산
-            }.await()
-
-            val downloadUrl = videoRef.downloadUrl.await()
-            videoUrls += downloadUrl.toString()
-            Log.d("UploadFile", "파일 업로드 완료: ${file.name}, URL: $downloadUrl")
+            videoRef.putFile(uri).await()
+            videoUrls += videoRef.downloadUrl.await().toString()
         }
 
-        // 2) Mediapipe 데이터 읽기
+        // 2) mediapipe 데이터 읽기
         val mediapipeData = db.collection("interview_mediapipe")
             .document(sessionId)
             .get()
             .await()
-            .data ?: emptyMap<String, Any>()
+            .data
+            ?: emptyMap<String, Any>()
 
-        // 3) Feedback 참조 저장
+        // 3) feedback 참조 저장
         val feedbackRef = db.collection("interview_feedback").document(sessionId)
+
+        val categoryData = mapOf(
+            "major" to "지정 없음",
+            "sub" to "지정 없음"
+        )
 
         // 4) 인터뷰 문서 저장
         val videoData = mapOf(
             "question" to questions,
             "title" to videoTitle,
+            "category" to categoryData,
             "uploadTime" to FieldValue.serverTimestamp(),
             "user" to auth.currentUser?.uid,
             "videos" to videoUrls.map { mapOf("fileUrl" to it) },
@@ -556,16 +548,31 @@ private suspend fun uploadResults(
             .document(sessionId)
             .set(videoData, SetOptions.merge())
             .await()
-        Log.d("UploadResults", "데이터 저장 성공")
+
+        withContext(Dispatchers.Main) {
+            navController.navigate("${Screen.ResultScreen.route}/$sessionId")
+        }
+
+        db.collection("interview").document(sessionId).update("ready", true).await()
+        Result.success(Unit)
     } catch (e: Exception) {
-        Log.e("UploadError", "업로드 실패: ${e.message}")
-        throw e
+        Log.e("UploadError", "업로드 실패", e)
+        Result.failure(e)
+    } finally {
+        LoadingState.hide()
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewCheckQuestionScreen() {
     CheckQuestionScreen(
-        navController = androidx.navigation.compose.rememberNavController()
+        navController = rememberNavController(),
+        sessionId = "dummySessionId",
+        major = "컴퓨터공학",
+        sub = "AI",
+        questions = listOf("What is AI?", "Explain machine learning.", "What is your favorite programming language?")
     )
 }
+
+

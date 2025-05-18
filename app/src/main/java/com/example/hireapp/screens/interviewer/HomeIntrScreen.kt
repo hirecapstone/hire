@@ -1,6 +1,7 @@
 package com.example.hireapp.screens.interviewer
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,93 +25,84 @@ import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.hireapp.data.fetchPublicVideos
+import com.example.hireapp.models.VideoItem
 import com.example.hireapp.navigation.Screen
-import com.example.hireapp.util.LoadingState
-import com.google.firebase.Firebase
-import com.google.firebase.firestore.QuerySnapshot
-import com.google.firebase.firestore.firestore
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.example.hireapp.screens.VideoPlayer
+import com.example.hireapp.screens.applicant.LikeSection
+import com.example.hireapp.screens.applicant.VideoPlayerViewModel
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeIntrScreen(navController: NavController) {
+    val playerVm: VideoPlayerViewModel = viewModel(
+        factory = VideoPlayerViewModel.Factory(LocalContext.current)
+    )
+    val context = LocalContext.current
+    var videoList by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
 
-    /**
-     * db의 면접 영상들을 필터 조건에 맞게 불러오는 메서드
-     * 필터 아이템은 최대 10개 (파이어베이스 whereIn 제한)
-     *
-     * @param filterItems 필터 조건
-     * @param size 불러올 영상 개수
-     */
-    fun loadVideosWithFilter(filterItems: List<String>, size: Int) {
-        LoadingState.show()
 
-        val db = Firebase.firestore
-        val videoRef = db.collection("vidoes")
-
-        // 면접 게시물 별 영상들의 url을 저장함.
-        // TODO: MediaPlayer 등을 이용하여 스트리밍 형식으로 url의 영상 재생하기
-        val filteredVideoList = mutableListOf<List<String>>()
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val docs: QuerySnapshot
-
-                if (filterItems.isNotEmpty()) {
-                    docs = videoRef.whereIn("category.major", filterItems).get().await()
-                } else {
-                    docs = videoRef.get().await()
-                }
-
-                docs.forEach { doc ->
-                    val fieldList = doc.get("videos") as? List<*>
-                    val videoUrls = fieldList?.filterIsInstance<String>() ?: emptyList()
-                    filteredVideoList.add(videoUrls)
-                }
-            } catch (e: Exception) {
-                // TODO: 한 페이지 단위가 아닌, 게시물 당 예외 처리하도록 범위 변경 (지금은 페이지 단위)
-                Log.d("Load_video", "비디오 로드 중 오류가 발생했습니다.")
-            }
-
-            withContext(Dispatchers.Main) {
-                LoadingState.hide()
-            }
-        }
+    DisposableEffect(Unit) {
+        onDispose { playerVm.releaseAllPlayers() }
     }
 
-    val videoList = remember {
-        listOf( // 더미데이터
-            VideoItem("1", "IT 직무 면접", "이름0"),
-            VideoItem("2", "디자인 직무 면접", "이름1"),
-            VideoItem("3", "경영/사무 직무 면접", "이름2"),
-            VideoItem("4", "생산/기술 직무 면접", "이름3"),
-            VideoItem("5", "9급 공무원 면접", "이름4"),
-            VideoItem("6", "소방 공무원 면접", "이름5"),
-            VideoItem("7", "초등교사 면접", "이름6"),
-            VideoItem("8", "강사 면접", "이름7"),
-            VideoItem("9", "학부 입시 면접", "이름8"),
-            VideoItem("10", "편입 면접", "이름9")
-        )
+    LaunchedEffect(Unit) {
+        val user = Firebase.auth.currentUser
+
+        if(user != null) {
+            try {
+                val doc = Firebase.firestore.collection("users").document(user.uid).get().await()
+
+                val categoryMap = doc.get("category") as? Map<*, *>
+                val major = categoryMap?.get("major") as? String ?: "지정 없음"
+                val sub = categoryMap?.get("sub") as? String ?: "지정 없음"
+
+                Log.d("Inter-home", "${categoryMap}")
+                Log.d("Inter-home", "major = ${major}, sub = ${sub}")
+
+                videoList = fetchPublicVideos(
+                    major = if (!major.isNullOrEmpty()) major else null,
+                    sub = if (!sub.isNullOrEmpty()) listOf(sub) else null
+                )
+
+            } catch (e: Exception) {
+                Log.e("Firestore", "유저 정보 가져오기 실패: ${e.message}")
+            }
+        } else {
+            Toast.makeText(context, "로그인 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+            navController.navigate(Screen.Login.route)
+        }
     }
 
     Scaffold(
@@ -155,52 +148,88 @@ fun HomeIntrScreen(navController: NavController) {
                             .padding(12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
+                            Image(
+                                painter = painterResource(id = com.example.hireapp.R.drawable.user),
+                                contentDescription = "유저 프로필 이미지",
                                 modifier = Modifier
-                                    .size(40.dp)
-                                    .background(Color.Gray, CircleShape)
+                                    .size(36.dp)
+                                    .clip(CircleShape)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = video.userName, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "${video.userName}  (${video.major} / ${video.sub})",
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 더미 UI - 실제 영상 썸네일/재생기로 교체 예정
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(180.dp)
-                                .background(Color.LightGray),
-                            contentAlignment = Alignment.Center
+                                .aspectRatio(5f / 6f)
+                                .align(Alignment.CenterHorizontally)
                         ) {
-                            Text("영상 미리보기")
+                            VideoPlayer(
+                                url = video.fileUrl!!,
+                                playerVm = playerVm
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // 좋아요 & 댓글 아이콘 (좋아요 기능은 아직 구현x)
-                        Row {
-                            Icon(Icons.Default.FavoriteBorder, contentDescription = "좋아요")
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // 좋아요
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "좋아요", fontSize = 14.sp)
+                                LikeSection(videoId = video.id)
+                            }
+
                             Spacer(modifier = Modifier.width(16.dp))
-                            Icon(
-                                Icons.Default.ChatBubbleOutline,
-                                contentDescription = "댓글",
+
+                            // 댓글
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.clickable {
+                                    playerVm.releaseAllPlayers()
+                                    navController.navigate("${Screen.VideoDetail.route}/${video.id}")
+                                }
+                            ) {
+                                Text(text = "댓글", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.ChatBubbleOutline,
+                                    contentDescription = "댓글",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Image(
+                                painter = painterResource(id = com.example.hireapp.R.drawable.title2),
+                                contentDescription = "타이틀 이미지",
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = video.title,
+                                modifier = Modifier.clickable {
+                                    playerVm.releaseAllPlayers()
                                     navController.navigate("${Screen.VideoDetail.route}/${video.id}")
                                 }
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // 영상 제목
-                        Text(
-                            text = video.title,
-                            modifier = Modifier.clickable {
-                                navController.navigate("${Screen.VideoDetail.route}/${video.id}")
-                            }
-                        )
                     }
                 }
             }
@@ -213,6 +242,3 @@ fun HomeIntrScreen(navController: NavController) {
 fun PreviewHomeIntrScreen() {
     HomeIntrScreen(navController = rememberNavController())
 }
-
-data class VideoItem(val id: String, val title: String, val userName: String)
-data class Comment(val user: String, val text: String)

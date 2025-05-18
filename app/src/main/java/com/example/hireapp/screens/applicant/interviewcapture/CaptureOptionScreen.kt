@@ -77,7 +77,7 @@ fun CaptureOptionScreen(navController: NavController) {
 
                 // 질문 입력하기 카드
                 Card(
-                    onClick = { navController.navigate(Screen.InsertQuestion.route) },
+                    onClick = { navController.navigate(Screen.Capture2.route) },
                     modifier = Modifier
                         .weight(1f)
                         .height(160.dp),

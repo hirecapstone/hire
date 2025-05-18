@@ -8,14 +8,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlin.math.roundToInt
 
 @Composable
-fun SelectRoleScreen(onNext: (String, String, String) -> Unit) { // 세 개의 매개변수로 수정
+fun SelectRoleScreen(onNext: (String, String, String) -> Unit) {
+    var questionCount by remember { mutableStateOf(1) }
     val categories = listOf("기업", "공무원", "교육", "대학", "지정 없음")
     val jobMap = mapOf(
         categories[0] to listOf("IT", "디자인", "경영/사무", "생산/기술"),
@@ -38,6 +42,8 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) { // 세 개의 �
 
     val scrollState = rememberScrollState()
 
+    val options = (1..10).toList()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -45,6 +51,52 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) { // 세 개의 �
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        //
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "생성할 질문 개수",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "1",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.width(24.dp)
+                )
+
+                Slider(
+                    value = questionCount.toFloat(),
+                    onValueChange = { questionCount = it.roundToInt() },
+                    valueRange = 1f..10f,
+                    steps = 8,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                )
+
+                Text(
+                    text = "10",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.width(24.dp),
+                    textAlign = TextAlign.End
+                )
+            }
+
+            Text(
+                text = "$questionCount 개 선택됨",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 4.dp)
+            )
+        }
+        //
+
         DropdownMenuBox("대분류", categories, selectedCategory) {
             selectedCategory = it
             selectedSubcategory = ""
@@ -78,6 +130,7 @@ fun SelectRoleScreen(onNext: (String, String, String) -> Unit) { // 세 개의 �
                 val db = Firebase.firestore
                 val sessionId = "session_${System.currentTimeMillis()}" // 고유 세션 ID 생성
                 val data = hashMapOf(
+                    "questionCount" to questionCount,
                     "category" to selectedCategory,
                     "job" to selectedSubcategory,
                     "contact" to contact,

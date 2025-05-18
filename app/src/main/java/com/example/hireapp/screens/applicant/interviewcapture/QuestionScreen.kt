@@ -353,10 +353,6 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
         }
     }
 
-    var isUploading by remember { mutableStateOf(false) } // 업로드 상태 관리
-    var uploadError by remember { mutableStateOf<String?>(null) } // 업로드 에러 상태 관리
-
-
     // 제목 작성 다이얼로그
     if (showTitleDialog) {
         AlertDialog(
@@ -375,64 +371,20 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             },
             confirmButton = {
                 Button(onClick = {
-                    isUploading = true // 업로드 시작 시 로딩 상태 활성화
-                    uploadError = null // 기존 에러 초기화
-
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            // 업로드 로직 실행
-                            uploadVideoAndSave(
-                                recordedFiles = recordedFiles,
-                                sessionId = sessionId,
-                                major = major,
-                                sub = sub,
-                                videoTitle = videoTitle
-                            )
-                            withContext(Dispatchers.Main) {
-                                // 업로드 완료 후 로딩 종료 및 피드백 화면으로 이동
-                                isUploading = false
-                                showTitleDialog = false
-                                navController.navigate("feedback_screen/$sessionId")
-                            }
-                        } catch (e: Exception) {
-                            Log.e("UploadError", "업로드 중 오류 발생: ${e.message}")
-                            withContext(Dispatchers.Main) {
-                                uploadError = e.message
-                                isUploading = false
-                            }
-                        }
-                    }
+                    uploadVideoAndSave(recordedFiles, sessionId, major, sub, videoTitle, navController)
+                    navController.navigate("${Screen.ResultScreen.route}/$sessionId")
+                    showTitleDialog = false
                 }) {
                     Text("저장")
                 }
             },
             dismissButton = {
                 Button(onClick = {
-                    // 제목 저장 없이 홈 화면 이동
-                    recordedFiles.clear()
-                    showTitleDialog = false
                     navController.navigate(Screen.HomeAppl.route)
+                    showTitleDialog = false
+
                 }) {
                     Text("취소")
-                }
-            }
-        )
-    }
-    // 업로드 중 로딩 화면
-    if (isUploading) {
-        LoadingState.show("피드백을 생성 중입니다.")
-        return
-    }
-
-    // 에러 메시지 표시
-    uploadError?.let { errorMessage ->
-        AlertDialog(
-            onDismissRequest = { uploadError = null },
-            title = { Text("오류 발생") },
-            text = { Text(errorMessage) },
-            confirmButton = {
-                Button(onClick = { uploadError = null }) {
-                    Text("확인")
                 }
             }
         )
@@ -639,75 +591,90 @@ fun uploadVideoAndSave(
     sessionId: String,
     major: String,
     sub: String,
-    videoTitle: String
+    videoTitle: String, // 제목 추가
+    navController: NavController,
 ) {
     val db = FirebaseFirestore.getInstance()
-    val storageRef = FirebaseStorage.getInstance().reference
+    val storage = FirebaseStorage.getInstance()
     val auth = FirebaseAuth.getInstance()
-    val VIDEO_PATH = "videos/$sessionId"
+    val storageRef = storage.reference
+    val VIDEO_PATH = "videos/${sessionId}"
 
     CoroutineScope(Dispatchers.IO).launch {
         try {
-            // 1) 동영상 업로드
             val videoUrls = mutableListOf<String>()
-            for ((index, file) in recordedFiles.withIndex()) {
-                if (!file.exists()) {
-                    Log.e("UploadError", "파일이 존재하지 않습니다: ${file.absolutePath}")
-                    continue
-                }
 
-                val fileUri = Uri.fromFile(file)
-                val videoRef = storageRef.child("$VIDEO_PATH/${sessionId}_q${index + 1}.mp4")
+            recordedFiles.forEach { file ->
                 try {
+                    val fileUri = Uri.fromFile(file)
+                    val videoRef = storageRef.child("${VIDEO_PATH}/${file.name}")
                     Log.d("UploadFile", "파일 업로드 시작: ${file.name}")
+                    // 파일 업로드
                     videoRef.putFile(fileUri).await()
                     Log.d("UploadFile", "파일 업로드 성공: ${file.name}")
-                    val downloadUrl = videoRef.downloadUrl.await()
-                    videoUrls.add(downloadUrl.toString())
+                    try {
+                        val downloadUrl = videoRef.downloadUrl.await()
+                        Log.d("DownloadUrl", "다운로드 URL 가져오기 성공: ${downloadUrl.toString()}")
+                        videoUrls.add(downloadUrl.toString()) // URL 추가
+                    } catch (e: Exception) {
+                        Log.e("DownloadError", "다운로드 URL 가져오기 실패: ${e.message}")
+                    }
+
                 } catch (e: Exception) {
-                    Log.e("UploadError", "파일 업로드 실패: ${e.message}")
-                    throw e // 문제 발생 시 중단
+                    Log.e("UploadError", "파일 업로드 실패: ${e.message}, 파일: ${file.name}")
                 }
             }
 
-            // 2) Firestore 데이터 저장
-            val questions = db.collection("interview_questions")
+            val currentUser = auth.currentUser
+            val userUUID = currentUser?.uid;
+            // Firestore에서 sessionId와 일치하는 interview_questions 문서 가져오기
+            val latestQuestionRef = db.collection("interview_questions")
+                .document(sessionId) // sessionId로 문서를 찾음
+                .get()
+                .await()
+
+            val questions = latestQuestionRef.get("questions") as? List<String> ?: listOf()
+
+            // — mediapipe 데이터 가져오기 —
+            val mediapipeSnap = db.collection("interview_mediapipe")
                 .document(sessionId)
                 .get()
                 .await()
-                .get("questions") as? List<String> ?: emptyList()
+            val mediapipeData = mediapipeSnap.data ?: emptyMap<String, Any>()
 
-            val mediapipeData = db.collection("interview_mediapipe")
-                .document(sessionId)
-                .get()
-                .await()
-                .data ?: emptyMap<String, Any>()
-
-            val feedbackRef = db.collection("interview_feedback").document(sessionId)
-
-            val videoData = mapOf(
-                "category" to mapOf(
+            val feedbackRef =db.collection("interview_feedback").document(sessionId)
+            // Firestore에 저장할 데이터 생성
+            val videoData = hashMapOf(
+                "category" to hashMapOf(
                     "major" to major,
                     "sub" to sub
                 ),
                 "question" to questions,
                 "title" to videoTitle,
                 "uploadTime" to FieldValue.serverTimestamp(),
-                "user" to auth.currentUser?.uid,
+                "user" to userUUID,
                 "videos" to videoUrls.map { mapOf("fileUrl" to it) },
-                "mediapipe" to mediapipeData,
-                "feedback" to feedbackRef,
+                "mediapipe"  to mediapipeData,
+                "feedback"  to feedbackRef,
                 "public" to true
             )
 
+            val dbpath = "interview/${sessionId.replace("/", "")}"
+
+            // Firestore에 데이터 저장
+            Log.d("Upload", "Firestore에 데이터 저장 시작: $dbpath")
             db.collection("interview")
-                .document(sessionId)
-                .set(videoData, SetOptions.merge())
-                .await()
-            Log.d("UploadResults", "데이터 저장 성공")
+                .document(sessionId) // sessionId 그대로 사용
+                .set(videoData)
+                .addOnSuccessListener {
+                    Log.d("Upload", "Firestore에 데이터 저장 성공: $dbpath")
+                }
+                .addOnFailureListener { e ->
+                    Log.e("Upload", "Firestore에 데이터 저장 실패: ${e.message}, 경로: $dbpath")
+                }
+
         } catch (e: Exception) {
-            Log.e("UploadError", "업로드 실패: ${e.message}")
-            throw e // 호출한 곳으로 전달
+            Log.e("UploadError", "업로드 실패: ${e.message} 문서이름은 ${sessionId}")
         }
     }
 }
@@ -738,7 +705,6 @@ private fun saveMediapipeResult(
 @Preview(showBackground = true)
 @Composable
 fun PreviewQuestionScreen() {
-    // 임시 NavController, sessionId, major, sub
     QuestionScreen(
         navController = rememberNavController(),
         sessionId = "test",

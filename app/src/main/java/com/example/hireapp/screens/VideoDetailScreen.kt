@@ -1,7 +1,10 @@
 package com.example.hireapp.screens
 
+import android.content.Context
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
@@ -10,19 +13,24 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.hireapp.models.Comment
 import com.example.hireapp.models.VideoItem
@@ -35,10 +43,46 @@ import kotlinx.coroutines.tasks.await
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.example.hireapp.navigation.Screen
+import com.example.hireapp.screens.applicant.VideoPlayerViewModel
+
+@Composable
+fun VideoPlayer(url: String, playerVm: VideoPlayerViewModel ) {
+
+    val exoPlayer = playerVm.getPlayer(url)
+
+    DisposableEffect(exoPlayer) {
+        // 자동재생
+//        exoPlayer.playWhenReady = true
+        onDispose {
+            // 컴포저블이 사라질 때 재생 중지
+            exoPlayer.playWhenReady = false
+            exoPlayer.pause()
+        }
+    }
+
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = true
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(5f / 6f)
+            .pointerInput(Unit) {
+                detectTapGestures { exoPlayer.playWhenReady = true }
+            }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoDetailScreen(videoId: String, navController: NavController) {
+    val playerVm: VideoPlayerViewModel = viewModel(
+        factory = VideoPlayerViewModel.Factory(LocalContext.current)
+    )
     val db = Firebase.firestore
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
@@ -48,9 +92,15 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
     var comments = remember { mutableStateListOf<Comment>() }
     var inputText by remember { mutableStateOf("") }
     var currentUserName by remember { mutableStateOf("me") }
+    var currUserMajor by remember { mutableStateOf("지정 없음") }
+    var currUserSub by remember { mutableStateOf("지정 없음") }
     val listState = rememberLazyListState()
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
+
+    DisposableEffect(Unit) {
+        onDispose { playerVm.releaseAllPlayers() }
+    }
     // 현재 로그인한 유저 이름 가져오기
     LaunchedEffect(Unit) {
         val user = auth.currentUser
@@ -58,6 +108,11 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
             db.collection("users").document(user.uid).get()
                 .addOnSuccessListener { doc ->
                     currentUserName = doc.getString("name") ?: "익명"
+                    val categoryMap = doc.get("category") as? Map<*, *>
+                    currUserMajor = categoryMap?.get("major") as? String ?: "지정 없음"
+                    currUserSub = categoryMap?.get("sub") as? String ?: "지정 없음"
+
+                    Log.d("Comment", "로그인한 유저 ㅅcategory: ${categoryMap}, ${currUserMajor}, ${currUserSub}")
                 }
                 .addOnFailureListener {
                     Toast.makeText(context, "유저 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -115,15 +170,17 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
             .orderBy("timestamp")
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
-                    Toast.makeText(context, "댓글 불러오기 실패", Toast.LENGTH_SHORT).show()
+//                  Toast.makeText(context, "댓글 불러오기 실패", Toast.LENGTH_SHORT).show()
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
                     comments.clear()
                     for (doc in snapshot.documents) {
+                        val major = doc.getString("major") ?: "지정 없음"
+                        val sub = doc.getString("sub") ?: "지정 없음"
                         val user = doc.getString("user") ?: "익명"
                         val text = doc.getString("text") ?: ""
-                        comments.add(Comment(user, text))
+                        comments.add(Comment(user = user, major = major, sub = sub, text = text))
                     }
                 }
             }
@@ -151,36 +208,105 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = 8.dp)
                 ) {
                     item {
-                        Text(
-                            text = video!!.title,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                        Text(
-                            text = video!!.userName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Image(
+                                painter = painterResource(id = com.example.hireapp.R.drawable.movie),
+                                contentDescription = "영상 이미지",
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "면접 영상",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            TextButton(
+                                contentPadding = PaddingValues(0.dp),
+                                onClick = {
+                                    playerVm.releaseAllPlayers()
+                                    navController.navigate("${Screen.ResultScreen.route}/$videoId")
+                                }
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Image(
+                                        painter = painterResource(id = com.example.hireapp.R.drawable.detail2),
+                                        contentDescription = "디테일 아이콘",
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "상세 피드백",
+                                        color = Color.Black,
+                                        fontSize = 18.sp
+                                    )
+                                }
+                            }
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Image(
+                                    painter = painterResource(id = com.example.hireapp.R.drawable.title),
+                                    contentDescription = "제목 이미지",
+                                    modifier = Modifier.size(40.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = video!!.title,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Image(
+                                    painter = painterResource(id = com.example.hireapp.R.drawable.name),
+                                    contentDescription = "이름 이미지",
+                                    modifier = Modifier.size(40.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = video!!.userName,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         LazyRow(
                             state = listState,
                             flingBehavior = flingBehavior,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(9f / 16f)
+                                .aspectRatio(5f / 6f)
+                                .align(Alignment.CenterHorizontally),
+                            contentPadding = PaddingValues(horizontal = 16.dp)
                         ) {
                             itemsIndexed(video!!.fileUrls) { index, url ->
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .aspectRatio(9f / 16f)
+                                        .aspectRatio(5f / 6f)
+                                        .align(Alignment.CenterHorizontally),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    VideoPlayer(url = url)
+                                    VideoPlayer(
+                                        url = url,
+                                        playerVm = playerVm
+                                    )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
@@ -189,9 +315,13 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
-                    itemsIndexed(comments) { index, comment ->
+                    itemsIndexed(comments) { _, comment ->
                         Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                            Text(text = comment.user, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = comment.user, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = "${comment.major} | ${comment.sub}", color = Color.Gray)
+                            }
                             Text(text = comment.text)
                         }
                     }
@@ -211,7 +341,7 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                     )
                     IconButton(onClick = {
                         if (inputText.isNotBlank()) {
-                            val newComment = Comment(currentUserName, inputText)
+                            val newComment = Comment(currentUserName, currUserMajor, currUserSub, inputText)
                             coroutineScope.launch {
                                 try {
                                     db.collection("interview")
@@ -220,6 +350,8 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                                         .add(mapOf(
                                             "user" to newComment.user,
                                             "text" to newComment.text,
+                                            "major" to newComment.major,
+                                            "sub" to newComment.sub,
                                             "timestamp" to System.currentTimeMillis()
                                         ))
                                     inputText = ""
@@ -244,38 +376,5 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
     }
 }
 
-@Composable
-fun VideoPlayer(url: String) {
-    val context = LocalContext.current
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.parse(url)))
-            prepare()
-            playWhenReady = true
-        }
-    }
 
-    DisposableEffect(
-        AndroidView(
-            factory = {
-                PlayerView(it).apply {
-                    player = exoPlayer
-                    useController = true
-                }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = {
-                            exoPlayer.playWhenReady = true
-                        }
-                    )
-                }
-        )
-    ) {
-        onDispose {
-            exoPlayer.release()
-        }
-    }
-}
+
