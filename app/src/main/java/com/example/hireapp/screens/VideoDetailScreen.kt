@@ -322,9 +322,9 @@ fun VideoDetailScreen(videoId: String, navController: NavController) {
                         Column(modifier = Modifier.padding(vertical = 8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val avatarRes = when (comment.role) {
-                                    "면접관" -> com.example.hireapp.R.drawable.speak
-                                    "면접자" -> com.example.hireapp.R.drawable.hear         // 면접자 아이콘
-                                    else      -> com.example.hireapp.R.drawable.hear
+                                    "면접관" -> com.example.hireapp.R.drawable.hear
+                                    "면접자" -> com.example.hireapp.R.drawable.speak
+                                    else      -> com.example.hireapp.R.drawable.speak
                                 }
                                 Image(
                                     painter = painterResource(id = avatarRes),
