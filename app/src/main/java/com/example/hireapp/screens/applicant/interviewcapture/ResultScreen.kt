@@ -152,16 +152,17 @@ fun ResultScreen(
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = "전체 별점 평균: ${"%.1f".format(averageRating)} / 5",
+                            text = "면접관 평가 별점 평균: ${"%.1f".format(averageRating)} / 5",
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Row {
                             repeat(5) { i ->
-                                val res = if (i < averageRating.toInt())
-                                    com.example.hireapp.R.drawable.star
-                                else
-                                    com.example.hireapp.R.drawable.emptystar
+                                val res = when {
+                                    i < averageRating.toInt() -> com.example.hireapp.R.drawable.star
+                                    i < averageRating -> com.example.hireapp.R.drawable.halfstar // 반 별 리소스 필요!
+                                    else -> com.example.hireapp.R.drawable.emptystar
+                                }
                                 Image(
                                     painter = painterResource(id = res),
                                     contentDescription = null,
@@ -169,6 +170,7 @@ fun ResultScreen(
                                 )
                             }
                         }
+
                         // 면접관 전용 평가 입력
                         if (userRole == "면접관") {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -377,7 +379,7 @@ fun ResultScreen(
                                         val starResId = if (i <= tot) {
                                             com.example.hireapp.R.drawable.star // 채워진 별
                                         } else {
-                                            com.example.hireapp.R.drawable.emptystar // 빈 별
+                                            com.example.hireapp.R.drawable.emptystar2 // 빈 별
                                         }
 
                                         Image(
