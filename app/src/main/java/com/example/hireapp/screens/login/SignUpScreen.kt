@@ -53,6 +53,14 @@ class SignUpModel : ViewModel() {
     var email by mutableStateOf("")
     var password by mutableStateOf("")
     var role by mutableStateOf("")
+    fun clear() {
+        name = ""
+        birthDate = ""
+        phoneNumber = ""
+        email = ""
+        password = ""
+        role = ""
+    }
 }
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -208,13 +216,13 @@ fun SignUpCommonScreen(navController: NavController, viewModel: SignUpModel, rol
                 .fillMaxWidth()
                 .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("생년월일 (YYYY/MM/DD)") },  keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text), leadingIcon = {
+            TextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("생년월일(YYYY/MM/DD) ") },  keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text), leadingIcon = {
                 Icon(Icons.Rounded.Cake, contentDescription = "")
             }, modifier = Modifier
                 .fillMaxWidth()
                 .height(60.dp),textStyle = TextStyle(fontSize = 18.sp))
             Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("전화번호") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), leadingIcon = {
+            TextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("전화번호(000-0000-0000) ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text), leadingIcon = {
                 Icon(Icons.Rounded.Phone, contentDescription = "")
             }, modifier = Modifier
                 .fillMaxWidth()
@@ -270,6 +278,17 @@ fun SignUpCommonScreen(navController: NavController, viewModel: SignUpModel, rol
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(onClick = {
+                // 1. 전화번호에 '-'가 포함되어 있는지 확인
+                if (!phoneNumber.contains("-")) {
+                    Toast.makeText(context, "전화번호에 '-'를 포함해주세요. 예: 010-1234-5678", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                // 2. 생년월일에 '/'가 포함되어 있는지 확인
+                if (!birthDate.contains("/")) {
+                    Toast.makeText(context, "생년월일에 '/'를 포함해주세요. 예: 1990/01/01", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                // 3. 비밀번호 확인
                 if (password != confirmPassword) {
                     Toast.makeText(context, "비밀번호가 일치하지 않습니다.", Toast.LENGTH_SHORT).show()
                     return@Button
@@ -296,6 +315,7 @@ fun SignUpCommonScreen(navController: NavController, viewModel: SignUpModel, rol
                         )
 
                         if (result.isSuccess) {
+                            viewModel.clear() // 회원가입 성공시 ViewModel 값 초기화
                             navController.navigate(Screen.Login.route)
                             Toast.makeText(context, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
                         }
@@ -445,6 +465,7 @@ fun SignUpInterviewerScreen(navController: NavController, viewModel: SignUpModel
                             )
 
                             if (result.isSuccess) {
+                                viewModel.clear()
                                 navController.navigate(Screen.Login.route)
                                 Toast.makeText(context, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
                             } else {
@@ -577,6 +598,7 @@ suspend fun saveUser(
 fun PreviewSignUpScreen() {
     SignUpScreen(navController = rememberNavController())
 }
+
 /*
 
 @Preview(showBackground = true)
