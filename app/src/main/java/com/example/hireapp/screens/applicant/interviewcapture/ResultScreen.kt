@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 package com.example.hireapp.screens.applicant.interviewcapture
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.hireapp.navigation.Screen
+import com.example.hireapp.util.LoadingState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
@@ -50,60 +52,63 @@ fun ResultScreen(
     var answersList by remember { mutableStateOf<List<String>>(emptyList()) }
 
     LaunchedEffect(Unit) {
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            navController.navigate("login")
-        } else {
-            try {
-                val doc = db.collection("users").document(uid).get().await()
-                userRole = doc.getString("role")
-            } catch (e: Exception) {
-                userRole = null
+        // 로딩 화면 띄움
+        LoadingState.show("피드백을 불러오는 중입니다.")
+
+        try {
+            val uid = auth.currentUser?.uid
+            if (uid == null) {
+                navController.navigate("login")
+            } else {
+                try {
+                    val doc = db.collection("users").document(uid).get().await()
+                    userRole = doc.getString("role")
+                } catch (e: Exception) {
+                    userRole = null
+                }
             }
+
+            val interviewRef = db.collection("interview").document(sessionId)
+            val interviewDoc = interviewRef.get().await()
+            mediapipeData = interviewDoc.get("mediapipe")
+                    as? Map<String, Map<String, Map<String, Any>>> ?: emptyMap()
+            val rawFb = interviewDoc.get("feedback")
+            val fbRef: DocumentReference? = when (rawFb) {
+                is DocumentReference -> rawFb
+                is String -> db.document(rawFb)
+                else -> null
+            }
+
+            feedbackData = fbRef?.get()?.await()?.data ?: emptyMap()
+
+            val qRef = db.collection("interview_questions").document(sessionId)
+            val qSnap = qRef.get().await()
+            questionsList = (qSnap.get("questions") as? List<*>)
+                ?.mapNotNull { it as? String } ?: emptyList()
+
+            val aRef = db.collection("interview_answers").document(sessionId)
+            val aSnap = aRef.get().await()
+            answersList = (aSnap.get("text") as? List<*>)
+                ?.mapNotNull { it as? String } ?: emptyList()
+
+            // 별점 불러오기
+            val ratingsCol = interviewRef.collection("ratings")
+            if (uid != null) {
+                val myRating = ratingsCol.document(uid).get().await().getLong("rating")?.toInt()
+                userRating = myRating
+            }
+            val allRatings = ratingsCol.get().await().documents
+                .mapNotNull { it.getLong("rating")?.toInt() }
+            ratingsCount = allRatings.size
+            averageRating = if (allRatings.isNotEmpty()) allRatings.average() else 0.0
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Log.d("ResultScreen-Load", "피드백 로드 과정에서 예외 발생")
+        } finally {
+            Log.d("ResultScreen-Load", "피드백 로드 종료")
+            LoadingState.hide()
+            delay(200L)
         }
-        roleLoading = false
-    }
-
-    LaunchedEffect(sessionId) {
-        val interviewRef = db.collection("interview").document(sessionId)
-        while (!interviewRef.get().await().exists()) delay(1000L)
-        val interviewDoc = interviewRef.get().await()
-        mediapipeData = interviewDoc.get("mediapipe")
-                as? Map<String, Map<String, Map<String, Any>>> ?: emptyMap()
-        val rawFb = interviewDoc.get("feedback")
-        val fbRef: DocumentReference? = when (rawFb) {
-            is DocumentReference -> rawFb
-            is String -> db.document(rawFb)
-            else -> null
-        }
-        fbRef?.let { ref -> while (!ref.get().await().exists()) delay(1000L) }
-        feedbackData = fbRef?.get()?.await()?.data ?: emptyMap()
-
-        val qRef = db.collection("interview_questions").document(sessionId)
-        while (!qRef.get().await().exists()) delay(1000L)
-        val qSnap = qRef.get().await()
-        questionsList = (qSnap.get("questions") as? List<*>)
-            ?.mapNotNull { it as? String } ?: emptyList()
-
-        val aRef = db.collection("interview_answers").document(sessionId)
-        while (!aRef.get().await().exists()) delay(1000L)
-        val aSnap = aRef.get().await()
-        answersList = (aSnap.get("text") as? List<*>)
-            ?.mapNotNull { it as? String } ?: emptyList()
-
-        // 별점 불러오기
-        val ratingsCol = interviewRef.collection("ratings")
-        val uid = auth.currentUser?.uid
-        if (uid != null) {
-            val myRating = ratingsCol.document(uid).get().await().getLong("rating")?.toInt()
-            userRating = myRating
-        }
-        val allRatings = ratingsCol.get().await().documents
-            .mapNotNull { it.getLong("rating")?.toInt() }
-        ratingsCount = allRatings.size
-        averageRating = if (allRatings.isNotEmpty()) allRatings.average() else 0.0
-
-        isLoading = false
     }
     fun saveRating(rating: Int) {
         scope.launch {
@@ -230,25 +235,6 @@ fun ResultScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // 로딩 상태 처리
-            if (roleLoading || isLoading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        CircularProgressIndicator()
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "정확한 피드백을 위해 영상을 분석 중입니다.\n1~2분 정도 소요될 수 있어요.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-                return@Box
-            }
-
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize(),
