@@ -69,6 +69,11 @@
         var isReady      by remember { mutableStateOf(true) }
         var timer        by remember { mutableStateOf(30) }
         var isTimerRunning by remember { mutableStateOf(true) }
+        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+
+        // 2) 프리뷰 높이 비율 (예: 60%)
+        val previewHeight = screenHeight * 0.6f
+        val uiHeight = screenHeight - previewHeight
 
         // 녹화 관련 상태
         val sessionId        = remember { "session_${System.currentTimeMillis()}" }
@@ -270,156 +275,155 @@
         }
     
         // UI
-        Scaffold(
-            bottomBar = {
-                Button(
-                    onClick = {
-                        if(!isReady){
-                            currentRecording?.stop()
-                            currentRecording = null
-                            if (currentIndex == questions.lastIndex) {
-                                isTimerRunning = false
-                                showTitleDialog = true
-                                return@Button
-                            }
-                        }
-                        if (isReady) isReady = false
-                        else if (currentIndex < questions.size - 1) {
-                            currentIndex++; isReady = true
-                        } else {
-                            showTitleDialog = true
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(if (isReady) "준비 완료" else "답변 완료")
-                }
-            }
-        ) { ip ->
-            Column(
+        Column(modifier = Modifier.fillMaxSize()){
+            Box(
                 Modifier
-                    .fillMaxSize()
-                    .padding(ip)
+                    .fillMaxWidth()
+                    .height(screenHeight * 0.6f)
             ) {
+                when {
+                    isInPreview -> Box(
+                        Modifier
+                            .fillMaxWidth()
+                    ) { }
+
+                    !hasPermission -> Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("카메라 권한 필요")
+                    }
+
+                    else -> AndroidView(
+                        factory = { previewView },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    )
+                }
+
                 Box(
                     Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.7f)
-                ) {
-                    when {
-                        isInPreview -> Box(
-                            Modifier
-                                .fillMaxWidth()
-                        ) { }
-    
-                        !hasPermission -> Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("카메라 권한 필요")
-                        }
-    
-                        else -> AndroidView(
-                            factory = { previewView },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        )
-                    }
-    
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = expression,
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = posture,
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = gaze,
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                }
-    
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .fillMaxHeight(0.3f)
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 24.dp),
-                    verticalArrangement = Arrangement.Bottom,
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.TopCenter
                 ) {
                     Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Image(
-                            painter = painterResource(id = com.example.hireapp.R.drawable.document),
-                            contentDescription = "질문 이미지",
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            "질문 ${currentIndex + 1}/${questions.size}",
-                            style = MaterialTheme.typography.titleMedium
+                            text = expression,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium
                         )
-                    }
-    
-                    Spacer(modifier = Modifier.height(8.dp))
-    
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(
-                            painter = painterResource(id = com.example.hireapp.R.drawable.write),
-                            contentDescription = "입력한 텍스트 이미지",
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp)) // 수정: height → width
                         Text(
-                            questions.getOrNull(currentIndex) ?: "",
-                            style = MaterialTheme.typography.bodyLarge
+                            text = posture,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium
                         )
-                    }
-    
-                    Spacer(modifier = Modifier.height(10.dp))
-    
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(
-                            painter = painterResource(id = com.example.hireapp.R.drawable.time),
-                            contentDescription = "남은 시간 이미지",
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp)) // 수정: height → width
                         Text(
-                            if (isReady) "준비시간: $timer 초" else "남은 시간: $timer 초",
+                            text = gaze,
+                            color = Color.White,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-    
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
+            }
+
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth().height(uiHeight)
+            ) { Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.Bottom,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.document),
+                        contentDescription = "질문 이미지",
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        "질문 ${currentIndex + 1}/${questions.size}",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.write),
+                        contentDescription = "입력한 텍스트 이미지",
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp)) // 수정: height → width
+                    Text(
+                        questions.getOrNull(currentIndex) ?: "",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = com.example.hireapp.R.drawable.time),
+                        contentDescription = "남은 시간 이미지",
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp)) // 수정: height → width
+                    Text(
+                        if (isReady) "준비시간: $timer 초" else "남은 시간: $timer 초",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center  // Box 내부를 중앙 정렬
+                ){
+                    Button(
+                        onClick = {
+                            if(!isReady){
+                                currentRecording?.stop()
+                                currentRecording = null
+                                if (currentIndex == questions.lastIndex) {
+                                    isTimerRunning = false
+                                    showTitleDialog = true
+                                    return@Button
+                                }
+                            }
+                            if (isReady) isReady = false
+                            else if (currentIndex < questions.size - 1) {
+                                currentIndex++; isReady = true
+                            } else {
+                                showTitleDialog = true
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                    ) {
+                        Text(if (isReady) "준비 완료" else "답변 완료")
+                    }
+                }
+            }
+
             }
         }
         if (showTitleDialog) {

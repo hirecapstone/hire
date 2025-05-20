@@ -64,9 +64,12 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
     Log.d("MajorSubCheck", "전달된 Major: $major, Sub: $sub")
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp.dp
-    val previewHeight = screenWidth * 6 / 5
+    // 1) 화면 전체 높이(dp)
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+
+    // 2) 프리뷰 높이 비율 (예: 60%)
+    val previewHeight = screenHeight * 0.6f
+    val uiHeight = screenHeight - previewHeight
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     var aiQuestions by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -225,7 +228,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(previewHeight)
+                .height(screenHeight * 0.6f)
         ) {
             // 기존 VideoCapture용 PreviewView
             CameraPreviewViewWithVideo(
@@ -269,10 +272,12 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             }
         }
 
-        Column(
+        Surface (
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth().height(uiHeight)
+        ){ Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.Bottom,
@@ -361,7 +366,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             ) {
                 Text(if (phase == "prepare") "준비 완료" else "답변 완료")
             }
-        }
+        } }
     }
 
     // 제목 작성 다이얼로그

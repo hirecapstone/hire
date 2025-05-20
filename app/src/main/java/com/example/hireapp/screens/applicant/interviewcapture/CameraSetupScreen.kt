@@ -34,10 +34,11 @@ fun CameraSetupScreen(navController: NavController,
                       onNext: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp.dp
-    val previewHeight = screenWidth * 6 / 5
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
+    // 2) 프리뷰 높이 비율 (예: 60%)
+    val previewHeight = screenHeight * 0.6f
+    val uiHeight = screenHeight - previewHeight
     var hasPermission by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -70,64 +71,58 @@ fun CameraSetupScreen(navController: NavController,
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.65f)
-                .height(previewHeight),
+                .height(screenHeight * 0.6f),
             contentAlignment = Alignment.Center
         ) {
             if (hasPermission) {
-                CameraPreviewView(modifier = Modifier.fillMaxSize())
+                CameraPreviewView(Modifier.fillMaxSize())
             } else {
                 Text("카메라 및 마이크 권한이 필요합니다")
             }
         }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.35f)
-                .weight(1f),
-            contentAlignment = Alignment.Center
+        Surface(
+            color = MaterialTheme.colorScheme.background,
+            modifier = Modifier.fillMaxWidth().height(uiHeight)
         ) {
             Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(id = com.example.hireapp.R.drawable.setting),
-                        contentDescription = "세팅 이미지",
-                        modifier = Modifier.size(30.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painterResource(com.example.hireapp.R.drawable.setting),
+                        contentDescription = null,
+                        Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(Modifier.width(4.dp))
                     Text("카메라 세팅", style = MaterialTheme.typography.titleMedium)
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "세팅이 완료되었으면 촬영 시작 버튼을 누르세요",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-
-            Button(
-            onClick = {
-                if (fromInsert) {
-                    val gson = Gson()
-                    val questions = gson.fromJson(questionsJson, Array<String>::class.java).toList()
-                    navController.currentBackStackEntry?.savedStateHandle?.set("questions", ArrayList(questions))
-                    navController.navigate("check_question")
-                } else {
-                    onNext()
+                Spacer(Modifier.height(8.dp))
+                Text("세팅이 완료되었으면 촬영 시작 버튼을 누르세요")
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        if (fromInsert) {
+                            val gson = Gson()
+                            val questions =
+                                gson.fromJson(questionsJson, Array<String>::class.java).toList()
+                            navController.currentBackStackEntry?.savedStateHandle?.set(
+                                "questions",
+                                ArrayList(questions)
+                            )
+                            navController.navigate("check_question")
+                        } else {
+                            onNext()
+                        }
+                    },
+                    Modifier.fillMaxWidth(),
+                    enabled = hasPermission
+                ) {
+                    Text("촬영 시작")
                 }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            enabled = hasPermission // 권한 없으면 버튼 비활성화
-        ) {
-            Text("촬영 시작")
+            }
         }
     }
 }
