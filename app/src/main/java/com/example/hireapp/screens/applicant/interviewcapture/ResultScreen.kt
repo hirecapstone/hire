@@ -296,7 +296,7 @@ fun ResultScreen(
                     val speedArr = (feedbackData["speed"] as? List<*>)?.mapNotNull { it as? String }
                         ?: emptyList()
                     val totalArr =
-                        (feedbackData["total_scores"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() }
+                        (feedbackData["total_scores"] as? List<*>)?.mapNotNull { (it as? Number)?.toDouble() }
                             ?: emptyList()
                     val spd = speedArr.getOrNull(idx)
                     val speedFb = when (spd) {
@@ -367,38 +367,50 @@ fun ResultScreen(
                             scores.getOrNull(idx)?.let { critMap ->
                                 for ((k, v) in critMap) {
                                     val label = criteriaMap[k] ?: k
-                                    Text(text = "- $label: $v")
+                                    Text(text = "- $label: $v/5")
                                 }
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(text = "말 빠르기: $speedFb")
-                            val tot = totalArr.getOrNull(idx) ?: 0
-
+                            Spacer(modifier = Modifier.height(8.dp))
+                            val tot = (totalArr.getOrNull(idx) ?: 0).toDouble()
+                            val fullStars = tot.toInt()
+                            val hasHalf = (tot - fullStars) >= 0.5
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
                                     text = "총점: $tot/5",
-                                    style = MaterialTheme.typography.bodyLarge
+                                    style = MaterialTheme.typography.titleLarge
                                 )
 
                                 Spacer(modifier = Modifier.width(8.dp))
 
                                 Row {
-                                    for (i in 1..5) {
-                                        val starResId = if (i <= tot) {
-                                            com.example.hireapp.R.drawable.star // 채워진 별
-                                        } else {
-                                            com.example.hireapp.R.drawable.emptystar2 // 빈 별
-                                        }
-
+                                    // 꽉 찬 별
+                                    repeat(fullStars.coerceAtMost(5)) {
                                         Image(
-                                            painter = painterResource(id = starResId),
-                                            contentDescription = "별점 이미지",
-                                            modifier = Modifier
-                                                .size(20.dp)
-                                                .padding(end = 2.dp)
+                                            painter = painterResource(id = com.example.hireapp.R.drawable.star),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    // 반별
+                                    if (hasHalf && fullStars < 5) {
+                                        Image(
+                                            painter = painterResource(id = com.example.hireapp.R.drawable.halfstar),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    // 나머지 빈별
+                                    val emptyCount = 5 - fullStars - if (hasHalf) 1 else 0
+                                    repeat(emptyCount.coerceAtLeast(0)) {
+                                        Image(
+                                            painter = painterResource(id = com.example.hireapp.R.drawable.emptystar2),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 }
