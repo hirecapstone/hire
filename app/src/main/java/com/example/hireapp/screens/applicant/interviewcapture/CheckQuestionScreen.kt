@@ -525,7 +525,7 @@ suspend fun uploadResults(
             ?: emptyMap<String, Any>()
 
         // 3) feedback 참조 저장
-        val feedbackRef = waitForFeedbackDocument(sessionId, db)?.reference
+        val feedbackRef = db.collection("interview_feedback").document(sessionId)
 
         val categoryData = mapOf(
             "major" to "지정 없음",
