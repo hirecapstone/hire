@@ -68,7 +68,8 @@
         var currentIndex by remember { mutableStateOf(0) }
         var isReady      by remember { mutableStateOf(true) }
         var timer        by remember { mutableStateOf(30) }
-    
+        var isTimerRunning by remember { mutableStateOf(true) }
+
         // 녹화 관련 상태
         val sessionId        = remember { "session_${System.currentTimeMillis()}" }
         val recordedFiles    = remember { mutableStateListOf<File>() }
@@ -151,6 +152,7 @@
     
         // 타이머
         LaunchedEffect(currentIndex, isReady) {
+            isTimerRunning = true
             if(!isReady){
                 answerElapsed = 0
                 smileTimestamps.clear()
@@ -167,7 +169,7 @@
                 currentRecording = null
             }
             timer = if (isReady) 30 else 60
-            while (timer > 0) {
+            while (timer > 0 && isTimerRunning) {
                 delay(1_000L)
                 timer--
                 if (!isReady) {
@@ -275,6 +277,11 @@
                         if(!isReady){
                             currentRecording?.stop()
                             currentRecording = null
+                            if (currentIndex == questions.lastIndex) {
+                                isTimerRunning = false
+                                showTitleDialog = true
+                                return@Button
+                            }
                         }
                         if (isReady) isReady = false
                         else if (currentIndex < questions.size - 1) {
@@ -444,7 +451,7 @@
                             navController    = navController
                         )
                         showTitleDialog = false
-                        navController.navigate("${Screen.ResultScreen.route}/$sessionId")
+                        navController.navigate("${Screen.ResultScreen.route}/$sessionId?from=check")
                     }) {
                         Text("저장")
                     }
@@ -540,7 +547,7 @@
                     .await()
     
                 withContext(Dispatchers.Main) {
-                    navController.navigate("${Screen.ResultScreen.route}/$sessionId")
+                    navController.navigate("${Screen.ResultScreen.route}/$sessionId?from=check")
                 }
             } catch (e: Exception) {
                 Log.e("UploadError", "업로드 실패", e)

@@ -163,6 +163,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
 
     // 타이머 및 녹화/분석 로직 통합
     LaunchedEffect(phase, currentIndex) {
+        isTimerRunning = true
         if (phase == "prepare" || phase == "answer") {
             timeLeft = if (phase == "prepare") 30 else 60
             answerElapsed = 0
@@ -185,7 +186,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                 )
             }
 
-            while (timeLeft > 0) {
+            while (timeLeft > 0 && isTimerRunning) {
                 delay(1000L)
                 timeLeft--
                 if (phase == "answer") {
@@ -333,6 +334,16 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
                     if (phase == "prepare") {
                         phase = "answer"
                     } else {
+                        if (currentIndex == allQuestions.value.lastIndex) {
+                            stopRecording(recording)
+                            saveMediapipeResult(
+                                db, sessionId, currentIndex,
+                                smileTimestamps, badPostureTimestamps, notFrontTimestamps
+                            )
+                            isTimerRunning = false
+                            showTitleDialog = true
+                            return@Button
+                        }
                         stopRecording(recording)
                         saveMediapipeResult(
                             db, sessionId, currentIndex,
@@ -372,7 +383,7 @@ fun QuestionScreen(navController: NavController, sessionId: String, major: Strin
             confirmButton = {
                 Button(onClick = {
                     uploadVideoAndSave(recordedFiles, sessionId, major, sub, videoTitle, navController)
-                    navController.navigate("${Screen.ResultScreen.route}/$sessionId")
+                    navController.navigate("${Screen.ResultScreen.route}/$sessionId?from=question")
                     showTitleDialog = false
                 }) {
                     Text("저장")

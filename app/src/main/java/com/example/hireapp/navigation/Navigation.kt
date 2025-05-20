@@ -128,13 +128,20 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), userT
         }
 
         composable(
-            route = "${Screen.ResultScreen.route}/{sessionId}",
+            route = "${Screen.ResultScreen.route}/{sessionId}?from={from}",
             arguments = listOf(
-                navArgument("sessionId") { type = NavType.StringType }
+                navArgument("sessionId") { type = NavType.StringType },
+                navArgument("from") {
+                    type = NavType.StringType
+                    defaultValue = ""   // 넘어오지 않으면 빈 문자열
+                    nullable = true
+                }
+
             )
         ) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@composable
-            ResultScreen(navController = navController, sessionId = sessionId)
+            val from      = backStackEntry.arguments!!.getString("from") ?: ""
+            ResultScreen(navController = navController, sessionId = sessionId, from = from)
         }
     }
 }

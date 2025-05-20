@@ -27,11 +27,16 @@ import kotlinx.coroutines.tasks.await
 @Composable
 fun ResultScreen(
     navController: NavController,
-    sessionId: String
+    sessionId: String,
+    from: String = ""
 ) {
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
     val scope = rememberCoroutineScope()
+    val prevRoute = navController
+        .previousBackStackEntry
+        ?.destination
+        ?.route
 
     // 사용자 역할 및 별점 상태
     var userRole by remember { mutableStateOf<String?>(null) }
@@ -232,6 +237,12 @@ fun ResultScreen(
         ) {
             // 로딩 상태 처리
             if (roleLoading || isLoading) {
+
+                val loadingText = if (from == "question" || from == "check") {
+                    "정확한 피드백을 위해 영상을 분석 중입니다.\n1~2분 정도 소요될 수 있어요."
+                } else {
+                    "피드백을 불러오는 중입니다…"
+                }
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -240,7 +251,7 @@ fun ResultScreen(
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "정확한 피드백을 위해 영상을 분석 중입니다.\n1~2분 정도 소요될 수 있어요.",
+                            text = loadingText,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center
                         )
