@@ -380,6 +380,10 @@ fun ResultScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
+                                val fullStars = tot.toInt()
+                                val hasHalf = (tot - fullStars) > 0.0
+                                val emptyCount = 5 - fullStars - if (hasHalf) 1 else 0
+
                                 Text(
                                     text = "총점: $tot/5",
                                     style = MaterialTheme.typography.titleLarge
@@ -396,7 +400,8 @@ fun ResultScreen(
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
-                                    // 반별
+
+                                    // 반 별
                                     if (hasHalf && fullStars < 5) {
                                         Image(
                                             painter = painterResource(id = com.example.hireapp.R.drawable.halfstar),
@@ -404,8 +409,8 @@ fun ResultScreen(
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
-                                    // 나머지 빈별
-                                    val emptyCount = 5 - fullStars - if (hasHalf) 1 else 0
+
+                                    // 빈 별
                                     repeat(emptyCount.coerceAtLeast(0)) {
                                         Image(
                                             painter = painterResource(id = com.example.hireapp.R.drawable.emptystar2),
@@ -417,7 +422,7 @@ fun ResultScreen(
                             }
 
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                             // 비언어적 피드백
                             Text(text = "▶ 비언어적 피드백", style = MaterialTheme.typography.titleSmall)
                             Text(text = "- 자세: $postureFb")
