@@ -1,6 +1,7 @@
 package com.example.hireapp.screens.applicant
 
 import android.net.Uri
+import android.provider.ContactsContract.Data
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -13,6 +14,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -49,11 +51,13 @@ import com.example.hireapp.data.subCategory
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.sp
 import com.example.hireapp.screens.VideoPlayer
 import com.google.firebase.auth.ktx.auth
 
+data class FilterItems(var major:Category?, var subs: List<String>?)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,6 +93,14 @@ fun HomeApplScreen(navController: NavController) {
         videoList = fetchPublicVideos(selectedMajor?.label, selectedSubs)
     }
 
+    val listState = rememberLazyListState()
+    var currentFilter: FilterItems? by rememberSaveable { mutableStateOf(null) }
+
+    // 필터 변경 시 스크롤 최상단 이동
+    LaunchedEffect(currentFilter) {
+        listState.animateScrollToItem(0)
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -160,6 +172,7 @@ fun HomeApplScreen(navController: NavController) {
                             videoList = fetchPublicVideos(selectedMajor?.label, selectedSubs)
                             isFilterVisible = false
                             isFilterApplied = true
+                            currentFilter = FilterItems(major = selectedMajor, subs = selectedSubs)
                         }
                     },
                     onResetFilter = {
@@ -169,6 +182,7 @@ fun HomeApplScreen(navController: NavController) {
                             selectedSubs = null
                             isFilterVisible = false
                             isFilterApplied = false
+                            currentFilter = FilterItems(major = selectedMajor, subs = selectedSubs)
                         }
                     }
                 )
@@ -193,6 +207,7 @@ fun HomeApplScreen(navController: NavController) {
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.White)
