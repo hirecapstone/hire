@@ -23,6 +23,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlin.math.round
 
 @Composable
 fun ResultScreen(
@@ -43,6 +44,9 @@ fun ResultScreen(
     var roleLoading by remember { mutableStateOf(true) }
     var userRating by remember { mutableStateOf<Int?>(null) }
     var averageRating by remember { mutableStateOf(0.0) }
+    val displayedRating by remember(averageRating) {
+        mutableStateOf(round(averageRating * 2) / 2.0)
+    }
     var ratingsCount by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     var mediapipeData by remember {
@@ -164,8 +168,8 @@ fun ResultScreen(
                         Row {
                             repeat(5) { i ->
                                 val res = when {
-                                    i < averageRating.toInt() -> com.example.hireapp.R.drawable.star
-                                    i < averageRating -> com.example.hireapp.R.drawable.halfstar // 반 별 리소스 필요!
+                                    i < displayedRating.toInt() -> com.example.hireapp.R.drawable.star
+                                    i < displayedRating -> com.example.hireapp.R.drawable.halfstar // 반 별 리소스 필요!
                                     else -> com.example.hireapp.R.drawable.emptystar
                                 }
                                 Image(
@@ -374,8 +378,10 @@ fun ResultScreen(
                             Text(text = "말 빠르기: $speedFb")
                             Spacer(modifier = Modifier.height(8.dp))
                             val tot = (totalArr.getOrNull(idx) ?: 0).toDouble()
-                            val fullStars = tot.toInt()
-                            val hasHalf = (tot - fullStars) >= 0.5
+                            val displayedTot = round(tot * 2) / 2.0
+                            val fullScoreStars = displayedTot.toInt()
+                            val hasHalfScore = (displayedTot - fullScoreStars) >= 0.5
+                            val emptyScoreStars = 5 - fullScoreStars - if (hasHalfScore) 1 else 0
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth()
@@ -389,7 +395,7 @@ fun ResultScreen(
 
                                 Row {
                                     // 꽉 찬 별
-                                    repeat(fullStars.coerceAtMost(5)) {
+                                    repeat(fullScoreStars) {
                                         Image(
                                             painter = painterResource(id = com.example.hireapp.R.drawable.star),
                                             contentDescription = null,
@@ -397,16 +403,15 @@ fun ResultScreen(
                                         )
                                     }
                                     // 반별
-                                    if (hasHalf && fullStars < 5) {
+                                    if (hasHalfScore) {
                                         Image(
                                             painter = painterResource(id = com.example.hireapp.R.drawable.halfstar),
                                             contentDescription = null,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
-                                    // 나머지 빈별
-                                    val emptyCount = 5 - fullStars - if (hasHalf) 1 else 0
-                                    repeat(emptyCount.coerceAtLeast(0)) {
+
+                                    repeat(emptyScoreStars) {
                                         Image(
                                             painter = painterResource(id = com.example.hireapp.R.drawable.emptystar2),
                                             contentDescription = null,
