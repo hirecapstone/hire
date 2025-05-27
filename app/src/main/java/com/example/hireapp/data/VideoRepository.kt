@@ -29,11 +29,9 @@ suspend fun fetchPublicVideos(major: String?, sub: List<String>?): List<VideoIte
         }
 
         // sub 조건이 있는 경우
-        if (sub != null) {
-            if (sub.isNotEmpty()) {
-                Log.d("Fetch-videos", "sub 조건 추가, ${sub.toString()}")
-                query = query.whereIn("category.sub", sub)
-            }
+        if (!sub.isNullOrEmpty()) {
+            Log.d("Fetch-videos", "sub 조건 추가, ${sub.toString()}")
+            query = query.whereIn("category.sub", sub)
         }
 
         val interviewDocs = query.orderBy("uploadTime", Query.Direction.DESCENDING) .get().await()
